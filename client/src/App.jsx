@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import Header from './components/Header'
 import Footer from './components/Footer'
+import ChatWidget from './components/ChatWidget'
 import Home from './pages/Home'
 import Article from './pages/Article'
 import LatestNews from './pages/LatestNews'
@@ -25,6 +26,7 @@ function App() {
         </Routes>
       </main>
       <Footer />
+      <ChatWidget />
     </div>
   )
 }
