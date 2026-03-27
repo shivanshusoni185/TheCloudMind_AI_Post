@@ -1,4 +1,4 @@
-app = "ai-news-prod-web"
+app = "thecloudmind-web"
 primary_region = "sin"
 
 [build]
