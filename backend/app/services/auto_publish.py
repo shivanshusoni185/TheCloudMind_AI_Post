@@ -1,14 +1,15 @@
 import html
+import json
 import logging
 import os
 import re
 from dataclasses import dataclass
 from typing import Iterable, Optional
-from urllib.parse import urlparse
 
 import feedparser
 import requests
 from bs4 import BeautifulSoup
+from openai import OpenAI
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -18,7 +19,6 @@ from ..models import News, generate_slug
 logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 20
-MAX_IMAGE_BYTES = 10 * 1024 * 1024
 USER_AGENT = (
     "Mozilla/5.0 (compatible; TheCloudMindBot/1.0; "
     "+https://cloudmindai.in)"
@@ -34,20 +34,24 @@ class FeedConfig:
 
 FEEDS: tuple[FeedConfig, ...] = (
     FeedConfig(
-        topic="ai",
-        url=(
-            "https://news.google.com/rss/search?"
-            "q=artificial+intelligence&hl=en-IN&gl=IN&ceid=IN:en"
-        ),
-        tags=["AI", "Automation", "Daily Brief"],
+        topic="ai-industry",
+        url="https://venturebeat.com/category/ai/feed/",
+        tags=["AI", "Industry", "Daily Brief"],
     ),
     FeedConfig(
-        topic="sports",
-        url=(
-            "https://news.google.com/rss/headlines/section/topic/SPORTS?"
-            "hl=en-IN&gl=IN&ceid=IN:en"
-        ),
-        tags=["Sports", "Automation", "Daily Brief"],
+        topic="ai-tech",
+        url="https://techcrunch.com/category/artificial-intelligence/feed/",
+        tags=["AI", "Technology", "Daily Brief"],
+    ),
+    FeedConfig(
+        topic="ai-research",
+        url="https://www.technologyreview.com/feed/",
+        tags=["AI", "Research", "Daily Brief"],
+    ),
+    FeedConfig(
+        topic="ai-news",
+        url="https://artificialintelligence-news.com/feed/",
+        tags=["AI", "News", "Daily Brief"],
     ),
 )
 
@@ -64,7 +68,7 @@ def _clean_title(title: str) -> str:
     return parts[0].strip() if parts else cleaned
 
 
-def _summary_from_entry(entry: dict) -> str:
+def _raw_summary_from_entry(entry: dict) -> str:
     candidates = [
         entry.get("summary", ""),
         entry.get("description", ""),
@@ -77,82 +81,89 @@ def _summary_from_entry(entry: dict) -> str:
     for candidate in candidates:
         cleaned = _clean_text(candidate)
         if cleaned:
-            return cleaned[:500]
-    return "Auto-curated story. Open the source link for the full article."
+            return cleaned[:1000]
+    return ""
 
 
-def _content_from_summary(summary: str, source_url: str, topic: str) -> str:
-    paragraphs = [
-        summary,
-        (
-            f"This {topic} story was automatically aggregated for the daily "
-            "morning update."
-        ),
-        f"Original source: {source_url}",
-    ]
-    return "\n\n".join(paragraphs)
+def _enrich_with_openai(title: str, raw_summary: str) -> tuple[str, str, str]:
+    """
+    Uses GPT-4o-mini to rewrite content and extract image keywords.
+    Returns (summary, full_content, image_keywords).
+    Falls back to raw values on any error.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        logger.warning("OPENAI_API_KEY not set; skipping enrichment")
+        fallback = raw_summary[:500] if raw_summary else title
+        return fallback, raw_summary or title, title
+
+    try:
+        client = OpenAI(api_key=api_key)
+        prompt = (
+            f"Title: {title}\n"
+            f"Raw summary: {raw_summary}\n\n"
+            "Return a JSON object with exactly these three keys:\n"
+            "  summary: a clean 2-sentence summary suitable for a news card (max 300 chars)\n"
+            "  content: a well-written 3-4 paragraph article expanding on this news story\n"
+            "  image_keywords: 2-3 concise visual search terms for finding a relevant stock photo "
+            "(e.g. 'artificial intelligence robot', 'machine learning data')\n\n"
+            "Write in a professional tech news style. Plain text only, no markdown."
+        )
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a professional tech news writer specializing in artificial intelligence. "
+                        "Always respond with valid JSON only."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.7,
+            max_tokens=900,
+        )
+        data = json.loads(response.choices[0].message.content)
+        summary = str(data.get("summary", raw_summary))[:500]
+        content = str(data.get("content", raw_summary))
+        image_keywords = str(data.get("image_keywords", title))
+        logger.info("OpenAI enrichment succeeded for: %s", title)
+        return summary, content, image_keywords
+    except Exception as exc:
+        logger.warning("OpenAI enrichment failed for '%s': %s", title, exc)
+        fallback = raw_summary[:500] if raw_summary else title
+        return fallback, raw_summary or title, title
 
 
-def _extract_image_url(entry: dict, article_html: Optional[str]) -> Optional[str]:
-    for key in ("media_content", "media_thumbnail"):
-        media_items = entry.get(key) or []
-        for item in media_items:
-            url = item.get("url")
-            if url:
-                return url
-
-    if not article_html:
+def _fetch_unsplash_image(keywords: str) -> Optional[str]:
+    """Search Unsplash for a free licensed image matching the keywords."""
+    access_key = os.getenv("UNSPLASH_ACCESS_KEY")
+    if not access_key:
+        logger.warning("UNSPLASH_ACCESS_KEY not set; skipping image fetch")
         return None
-
-    soup = BeautifulSoup(article_html, "html.parser")
-    selectors = [
-        ("meta", {"property": "og:image"}),
-        ("meta", {"name": "twitter:image"}),
-        ("meta", {"property": "og:image:url"}),
-    ]
-    for tag_name, attrs in selectors:
-        tag = soup.find(tag_name, attrs=attrs)
-        if tag and tag.get("content"):
-            return tag["content"].strip()
-
-    return None
-
-
-def _download_image(image_url: str) -> tuple[bytes, str, str] | tuple[None, None, None]:
     try:
         response = requests.get(
-            image_url,
+            "https://api.unsplash.com/search/photos",
+            params={
+                "query": keywords,
+                "per_page": 1,
+                "orientation": "landscape",
+                "content_filter": "high",
+            },
+            headers={"Authorization": f"Client-ID {access_key}"},
             timeout=REQUEST_TIMEOUT,
-            headers={"User-Agent": USER_AGENT},
-            stream=True,
         )
         response.raise_for_status()
-        content_type = response.headers.get("Content-Type", "").split(";")[0].strip()
-        if not content_type.startswith("image/"):
-            return None, None, None
-
-        data = response.content[: MAX_IMAGE_BYTES + 1]
-        if len(data) > MAX_IMAGE_BYTES:
-            logger.warning("Skipping oversized image: %s", image_url)
-            return None, None, None
-
-        path = urlparse(image_url).path
-        filename = os.path.basename(path) or "image.jpg"
-        return data, filename, content_type or "image/jpeg"
+        results = response.json().get("results", [])
+        if results:
+            url = results[0]["urls"]["regular"]
+            logger.info("Unsplash image found for '%s': %s", keywords, url)
+            return url
     except Exception as exc:
-        logger.warning("Failed to download image %s: %s", image_url, exc)
-        return None, None, None
-
-
-def _fetch_article_html(url: str) -> tuple[str, Optional[str]]:
-    response = requests.get(
-        url,
-        timeout=REQUEST_TIMEOUT,
-        headers={"User-Agent": USER_AGENT},
-        allow_redirects=True,
-    )
-    response.raise_for_status()
-    return response.text, response.url
+        logger.warning("Unsplash fetch failed for '%s': %s", keywords, exc)
+    return None
 
 
 def _story_exists(db: Session, title: str, base_slug: str) -> bool:
@@ -176,23 +187,9 @@ def _create_news_item(db: Session, feed: FeedConfig, entry: dict) -> bool:
         return False
     slug = generate_slug(title, db, News)
 
-    source_url = entry.get("link")
-    article_html = None
-    if source_url:
-        try:
-            article_html, source_url = _fetch_article_html(source_url)
-        except Exception as exc:
-            logger.warning("Failed to fetch article page %s: %s", source_url, exc)
-
-    summary = _summary_from_entry(entry)
-    content = _content_from_summary(summary, source_url or "Unavailable", feed.topic)
-
-    image_data = None
-    image_filename = None
-    image_mimetype = None
-    image_url = _extract_image_url(entry, article_html)
-    if image_url:
-        image_data, image_filename, image_mimetype = _download_image(image_url)
+    raw_summary = _raw_summary_from_entry(entry)
+    summary, content, image_keywords = _enrich_with_openai(title, raw_summary)
+    image_url = _fetch_unsplash_image(image_keywords)
 
     news = News(
         title=title,
@@ -201,10 +198,13 @@ def _create_news_item(db: Session, feed: FeedConfig, entry: dict) -> bool:
         tags=feed.tags,
         published=True,
         slug=slug,
-        image_data=image_data,
-        image_filename=image_filename,
-        image_mimetype=image_mimetype,
+        image_data=None,
+        image_filename=None,
+        image_mimetype=None,
     )
+    # Store Unsplash URL in the legacy URL column (no binary blob)
+    news._image_url_legacy = image_url
+
     db.add(news)
     db.commit()
     db.refresh(news)
@@ -220,7 +220,7 @@ def _iter_entries(feed: FeedConfig, limit: int) -> Iterable[dict]:
 
 
 def run_auto_publish(max_per_topic: int = 5) -> dict[str, int]:
-    stats = {"ai": 0, "sports": 0}
+    stats: dict[str, int] = {feed.topic: 0 for feed in FEEDS}
     db = SessionLocal()
     try:
         for feed in FEEDS:
@@ -230,7 +230,7 @@ def run_auto_publish(max_per_topic: int = 5) -> dict[str, int]:
                 except Exception as exc:
                     db.rollback()
                     logger.exception(
-                        "Auto-publish failed for topic %s and entry %s: %s",
+                        "Auto-publish failed for topic %s, entry '%s': %s",
                         feed.topic,
                         entry.get("title"),
                         exc,

@@ -61,7 +61,9 @@ function AdminDashboard() {
       const response = await adminApi.runAutomation()
       fetchArticles()
       const created = response.data?.created || {}
-      alert(`Automation completed. AI: ${created.ai || 0}, Sports: ${created.sports || 0}`)
+      const total = Object.values(created).reduce((sum, n) => sum + n, 0)
+      const breakdown = Object.entries(created).map(([k, v]) => `${k}: ${v}`).join(', ')
+      alert(`Automation completed! ${total} new article(s) published.\n${breakdown}`)
     } catch (error) {
       alert('Error running automation: ' + (error.response?.data?.detail || error.message))
     } finally {

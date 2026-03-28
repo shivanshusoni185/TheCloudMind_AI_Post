@@ -35,6 +35,10 @@ DATABASE_URL=postgresql://user:password@host:5432/db
 ADMIN_USERNAME=admin@example.com
 ADMIN_PASSWORD=your_password
 JWT_SECRET=your_jwt_secret
+# OpenAI — used to rewrite article content and extract image search keywords
+OPENAI_API_KEY=sk-...
+# Unsplash — used to fetch free licensed images by keyword
+UNSPLASH_ACCESS_KEY=your_unsplash_access_key
 # Optional scheduler settings (defaults shown):
 AUTO_PUBLISH_ENABLED=true
 AUTO_PUBLISH_TIMEZONE=Asia/Kolkata
