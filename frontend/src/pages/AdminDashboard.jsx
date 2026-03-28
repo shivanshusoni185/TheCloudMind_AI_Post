@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Trash2, Loader, Eye, EyeOff, RefreshCw, LogOut, Plus, X, Bot } from 'lucide-react'
+import { Trash2, Loader, Eye, EyeOff, RefreshCw, LogOut, Plus, X, Bot, ImageOff } from 'lucide-react'
 import { adminApi, getImageUrl } from '../lib/api'
 import logo from '../assets/logo.jpg'
 
@@ -12,6 +12,7 @@ function AdminDashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [creating, setCreating] = useState(false)
   const [runningAutomation, setRunningAutomation] = useState(false)
+  const [fixingImages, setFixingImages] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     summary: '',
@@ -53,6 +54,19 @@ function AdminDashboard() {
   const handleLogout = () => {
     localStorage.removeItem('token')
     navigate('/admin/login')
+  }
+
+  const handleFixImages = async () => {
+    setFixingImages(true)
+    try {
+      const response = await adminApi.backfillImages()
+      fetchArticles()
+      alert(`Image fix completed!\nFixed: ${response.data?.fixed || 0} articles\nSkipped: ${response.data?.skipped || 0} articles`)
+    } catch (error) {
+      alert('Error fixing images: ' + (error.response?.data?.detail || error.message))
+    } finally {
+      setFixingImages(false)
+    }
   }
 
   const handleAutomationRun = async () => {
@@ -160,6 +174,15 @@ function AdminDashboard() {
             >
               <Plus className="w-5 h-5" />
               Create Post
+            </button>
+            <button
+              onClick={handleFixImages}
+              disabled={fixingImages}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition disabled:opacity-50"
+              title="Replace broken/missing images with relevant Unsplash images"
+            >
+              {fixingImages ? <Loader className="w-5 h-5 animate-spin" /> : <ImageOff className="w-5 h-5" />}
+              Fix Images
             </button>
             <button
               onClick={handleAutomationRun}

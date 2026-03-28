@@ -7,7 +7,7 @@ from ..database import get_db
 from ..models import News, generate_slug
 from ..schemas import NewsResponse, Token
 from ..auth import authenticate_admin, create_access_token, get_current_admin
-from ..services.auto_publish import run_auto_publish
+from ..services.auto_publish import run_auto_publish, _enrich_with_openai, _fetch_unsplash_image
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -252,3 +252,43 @@ async def run_automation(
 ):
     stats = run_auto_publish()
     return {"message": "Automation run completed", "created": stats}
+
+
+@router.post("/backfill-images")
+async def backfill_images(
+    db: Session = Depends(get_db),
+    current_admin: str = Depends(get_current_admin)
+):
+    """Replace missing or broken images (e.g. Google News icon) with relevant Unsplash images."""
+    bad_url_patterns = ("google.com", "gstatic.com", "googleapis.com")
+
+    articles = db.query(News).filter(News.image_data == None).all()
+
+    fixed = 0
+    skipped = 0
+
+    for article in articles:
+        legacy_url = article._image_url_legacy or ""
+        has_bad_image = any(p in legacy_url for p in bad_url_patterns)
+        has_no_image = not legacy_url
+
+        if not (has_bad_image or has_no_image):
+            skipped += 1
+            continue
+
+        try:
+            _, _, image_keywords = _enrich_with_openai(article.title, article.summary or "")
+            new_url = _fetch_unsplash_image(image_keywords)
+            if new_url:
+                article._image_url_legacy = new_url
+                db.commit()
+                fixed += 1
+                logger.info("Backfilled image for article %d: %s", article.id, article.title)
+            else:
+                skipped += 1
+        except Exception as exc:
+            db.rollback()
+            logger.warning("Backfill failed for article %d: %s", article.id, exc)
+            skipped += 1
+
+    return {"message": "Image backfill completed", "fixed": fixed, "skipped": skipped}

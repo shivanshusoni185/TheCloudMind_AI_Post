@@ -46,6 +46,7 @@ export const adminApi = {
   }),
   deleteNews: (id) => api.delete(`/admin/news/${id}`),
   runAutomation: () => api.post('/admin/automation/run'),
+  backfillImages: () => api.post('/admin/backfill-images'),
 };
 
 export const getImageUrl = (imagePath) => {
