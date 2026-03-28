@@ -7,7 +7,7 @@ from ..database import get_db
 from ..models import News, generate_slug
 from ..schemas import NewsResponse, Token
 from ..auth import authenticate_admin, create_access_token, get_current_admin
-from ..services.auto_publish import run_auto_publish
+from ..services.auto_publish import refresh_automated_article_images, run_auto_publish
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -252,3 +252,11 @@ async def run_automation(
 ):
     stats = run_auto_publish()
     return {"message": "Automation run completed", "created": stats}
+
+
+@router.post("/automation/refresh-images")
+async def refresh_automation_images(
+    current_admin: str = Depends(get_current_admin)
+):
+    stats = refresh_automated_article_images()
+    return {"message": "Automation images refreshed", "updated": stats}

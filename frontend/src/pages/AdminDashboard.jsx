@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Trash2, Loader, Eye, EyeOff, RefreshCw, LogOut, Plus, X, Bot } from 'lucide-react'
+import { Trash2, Loader, Eye, EyeOff, RefreshCw, LogOut, Plus, X, Bot, Image as ImageIcon } from 'lucide-react'
 import { adminApi, getImageUrl } from '../lib/api'
 import logo from '../assets/logo.jpg'
 
@@ -12,6 +12,7 @@ function AdminDashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [creating, setCreating] = useState(false)
   const [runningAutomation, setRunningAutomation] = useState(false)
+  const [refreshingImages, setRefreshingImages] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     summary: '',
@@ -66,6 +67,20 @@ function AdminDashboard() {
       alert('Error running automation: ' + (error.response?.data?.detail || error.message))
     } finally {
       setRunningAutomation(false)
+    }
+  }
+
+  const handleImageRefresh = async () => {
+    setRefreshingImages(true)
+    try {
+      const response = await adminApi.refreshAutomationImages()
+      fetchArticles()
+      const stats = response.data?.updated || {}
+      alert(`Image refresh completed. Updated: ${stats.updated || 0}, Checked: ${stats.checked || 0}, Failed: ${stats.failed || 0}`)
+    } catch (error) {
+      alert('Error refreshing automation images: ' + (error.response?.data?.detail || error.message))
+    } finally {
+      setRefreshingImages(false)
     }
   }
 
@@ -167,6 +182,15 @@ function AdminDashboard() {
             >
               {runningAutomation ? <Loader className="w-5 h-5 animate-spin" /> : <Bot className="w-5 h-5" />}
               Auto Publish
+            </button>
+            <button
+              onClick={handleImageRefresh}
+              disabled={refreshingImages}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition disabled:opacity-50"
+              title="Refresh automation images"
+            >
+              {refreshingImages ? <Loader className="w-5 h-5 animate-spin" /> : <ImageIcon className="w-5 h-5" />}
+              Refresh Images
             </button>
             <button
               onClick={handleRefresh}
