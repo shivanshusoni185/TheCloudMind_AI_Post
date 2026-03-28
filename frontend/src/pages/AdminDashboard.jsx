@@ -13,6 +13,7 @@ function AdminDashboard() {
   const [creating, setCreating] = useState(false)
   const [runningAutomation, setRunningAutomation] = useState(false)
   const [refreshingImages, setRefreshingImages] = useState(false)
+  const [refreshingContent, setRefreshingContent] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     summary: '',
@@ -81,6 +82,20 @@ function AdminDashboard() {
       alert('Error refreshing automation images: ' + (error.response?.data?.detail || error.message))
     } finally {
       setRefreshingImages(false)
+    }
+  }
+
+  const handleContentRefresh = async () => {
+    setRefreshingContent(true)
+    try {
+      const response = await adminApi.refreshAutomationContent()
+      fetchArticles()
+      const stats = response.data?.updated || {}
+      alert(`Content refresh completed. Updated: ${stats.updated || 0}, Checked: ${stats.checked || 0}, Failed: ${stats.failed || 0}`)
+    } catch (error) {
+      alert('Error refreshing automation content: ' + (error.response?.data?.detail || error.message))
+    } finally {
+      setRefreshingContent(false)
     }
   }
 
@@ -191,6 +206,15 @@ function AdminDashboard() {
             >
               {refreshingImages ? <Loader className="w-5 h-5 animate-spin" /> : <ImageIcon className="w-5 h-5" />}
               Refresh Images
+            </button>
+            <button
+              onClick={handleContentRefresh}
+              disabled={refreshingContent}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+              title="Rewrite recent automation articles"
+            >
+              {refreshingContent ? <Loader className="w-5 h-5 animate-spin" /> : <Bot className="w-5 h-5" />}
+              Rewrite Recent
             </button>
             <button
               onClick={handleRefresh}

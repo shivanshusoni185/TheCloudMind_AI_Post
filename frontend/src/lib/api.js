@@ -47,6 +47,7 @@ export const adminApi = {
   deleteNews: (id) => api.delete(`/admin/news/${id}`),
   runAutomation: () => api.post('/admin/automation/run'),
   refreshAutomationImages: () => api.post('/admin/automation/refresh-images'),
+  refreshAutomationContent: () => api.post('/admin/automation/refresh-content'),
 };
 
 export const getImageUrl = (imagePath) => {

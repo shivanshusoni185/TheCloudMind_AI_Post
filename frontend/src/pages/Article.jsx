@@ -1,8 +1,40 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { ArrowLeft, Calendar, Tag, Loader } from 'lucide-react'
+import { ArrowLeft, Calendar, ExternalLink, Loader, Tag } from 'lucide-react'
 import { newsApi, getImageUrl } from '../lib/api'
+
+function parseArticleContent(content) {
+  const blocks = (content || '')
+    .split('\n\n')
+    .map(block => block.trim())
+    .filter(Boolean)
+
+  const sections = []
+  let sourceNote = ''
+  let originalSource = ''
+
+  blocks.forEach(block => {
+    if (block.startsWith('## ')) {
+      const lines = block.split('\n')
+      const heading = lines[0].replace(/^##\s+/, '').trim()
+      const body = lines.slice(1).join(' ').trim()
+      sections.push({ heading, body })
+      return
+    }
+
+    if (block.startsWith('Source note:')) {
+      sourceNote = block
+      return
+    }
+
+    if (block.startsWith('Original source:')) {
+      originalSource = block.replace('Original source:', '').trim()
+    }
+  })
+
+  return { sections, sourceNote, originalSource }
+}
 
 function Article() {
   const { slug } = useParams()
@@ -16,6 +48,7 @@ function Article() {
 
   const fetchArticle = async () => {
     setLoading(true)
+    setError(null)
     try {
       const response = await newsApi.getBySlug(slug)
       setArticle(response.data)
@@ -26,38 +59,45 @@ function Article() {
     }
   }
 
+  const parsedContent = useMemo(
+    () => parseArticleContent(article?.content || ''),
+    [article?.content],
+  )
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20">
-        <Loader className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader className="w-8 h-8 animate-spin text-teal-600" />
       </div>
     )
   }
 
   if (error || !article) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <Link to="/" className="flex items-center text-blue-600 hover:underline mb-8">
-          <ArrowLeft className="w-4 h-4 mr-2" />
+      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+        <Link to="/" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950">
+          <ArrowLeft className="h-4 w-4" />
           Back to Home
         </Link>
-        <div className="text-center py-20">
-          <p className="text-gray-500 text-xl">{error || 'Article not found'}</p>
+        <div className="mt-10 rounded-[28px] border border-slate-200 bg-white/90 p-12 text-center shadow-sm">
+          <p className="text-xl text-slate-500">{error || 'Article not found'}</p>
         </div>
       </div>
     )
   }
 
   const imageUrl = getImageUrl(article.image_url)
-  const tags = Array.isArray(article.tags) ? article.tags : (article.tags ? article.tags.split(',').map(t => t.trim()) : [])
+  const tags = Array.isArray(article.tags)
+    ? article.tags
+    : (article.tags ? article.tags.split(',').map(t => t.trim()) : [])
   const date = new Date(article.created_at).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
+    day: 'numeric',
   })
 
   const articleUrl = `https://cloudmindai.in/article/${article.slug}`
-  const description = article.summary || article.content.substring(0, 160) + '...'
+  const description = article.summary || `${article.title} | TheCloudMind.ai`
   const keywords = tags.join(', ')
 
   return (
@@ -65,7 +105,7 @@ function Article() {
       <Helmet>
         <title>{article.title} - TheCloudMind.ai</title>
         <meta name="description" content={description} />
-        <meta name="keywords" content={`${keywords}, AI news, artificial intelligence, machine learning`} />
+        <meta name="keywords" content={`${keywords}, AI news, sports news, analysis`} />
         <meta property="og:title" content={article.title} />
         <meta property="og:description" content={description} />
         <meta property="og:type" content="article" />
@@ -73,62 +113,91 @@ function Article() {
         {imageUrl && <meta property="og:image" content={imageUrl} />}
         <meta property="article:published_time" content={article.created_at} />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={article.title} />
-        <meta name="twitter:description" content={description} />
-        {imageUrl && <meta name="twitter:image" content={imageUrl} />}
         <link rel="canonical" href={articleUrl} />
       </Helmet>
-      <article className="max-w-4xl mx-auto px-4 py-8">
-        <Link to="/" className="flex items-center text-blue-600 hover:underline mb-8">
-          <ArrowLeft className="w-4 h-4 mr-2" />
+
+      <article className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+        <Link to="/" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950">
+          <ArrowLeft className="h-4 w-4" />
           Back to Home
         </Link>
 
-      {imageUrl && (
-        <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden mb-8">
-          <img 
-            src={imageUrl} 
-            alt={article.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
+        <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-6">
+            {imageUrl && (
+              <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
+                <img
+                  src={imageUrl}
+                  alt={article.title}
+                  className="aspect-[16/9] w-full object-cover"
+                />
+              </div>
+            )}
 
-      <header className="mb-8">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4 leading-tight">
-          {article.title}
-        </h1>
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm sm:text-base text-gray-500">
-          <div className="flex items-center space-x-2">
-            <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span>{date}</span>
-          </div>
-          {tags.length > 0 && (
-            <div className="flex items-start space-x-2 w-full sm:w-auto">
-              <Tag className="w-4 h-4 sm:w-5 sm:h-5 mt-1 flex-shrink-0" />
-              <div className="flex flex-wrap gap-2">
-                {tags.map((tag, i) => (
-                  <span key={i} className="px-2 py-1 bg-blue-100 text-blue-600 rounded text-xs sm:text-sm whitespace-nowrap">
+            <header className="rounded-[32px] border border-slate-200 bg-white/92 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.06)] sm:p-8">
+              <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                <span className="inline-flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  {date}
+                </span>
+                {tags.map((tag, index) => (
+                  <span key={`${tag}-${index}`} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-700">
+                    <Tag className="h-3.5 w-3.5" />
                     {tag}
                   </span>
                 ))}
               </div>
+
+              <h1 className="mt-5 text-3xl font-bold leading-tight tracking-tight text-slate-950 sm:text-5xl">
+                {article.title}
+              </h1>
+
+              <p className="font-editorial mt-5 text-xl leading-9 text-slate-600">
+                {article.summary}
+              </p>
+            </header>
+
+            <div className="space-y-5">
+              {parsedContent.sections.map((section) => (
+                <section
+                  key={section.heading}
+                  className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.05)] sm:p-7"
+                >
+                  <h2 className="text-2xl font-bold tracking-tight text-slate-950">
+                    {section.heading}
+                  </h2>
+                  <p className="font-editorial mt-3 text-[19px] leading-8 text-slate-700">
+                    {section.body}
+                  </p>
+                </section>
+              ))}
             </div>
-          )}
+          </div>
+
+          <aside className="space-y-5">
+            <div className="rounded-[28px] border border-slate-200 bg-white/92 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.05)]">
+              <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+                Story context
+              </div>
+              {parsedContent.sourceNote && (
+                <p className="mt-4 text-sm leading-7 text-slate-600">
+                  {parsedContent.sourceNote.replace('Source note:', '').trim()}
+                </p>
+              )}
+              {parsedContent.originalSource && (
+                <a
+                  href={parsedContent.originalSource}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-teal-700 transition hover:text-teal-800"
+                >
+                  Open original reporting
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              )}
+            </div>
+          </aside>
         </div>
-      </header>
-
-      <div className="bg-blue-50 border-l-4 border-blue-500 p-3 sm:p-4 mb-6 sm:mb-8 rounded-r-lg">
-        <p className="text-gray-700 text-base sm:text-lg italic leading-relaxed">
-          {article.summary}
-        </p>
-      </div>
-
-      <div className="prose prose-sm sm:prose-base lg:prose-lg max-w-none">
-        {article.content.split('\n').map((paragraph, i) => (
-          paragraph.trim() && <p key={i} className="text-gray-700 mb-4 leading-relaxed text-sm sm:text-base">{paragraph}</p>
-        ))}
-      </div>
       </article>
     </>
   )
