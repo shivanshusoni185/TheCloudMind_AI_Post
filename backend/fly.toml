@@ -4,7 +4,7 @@
 #
 
 app = 'thecloudmind-api'
-primary_region = 'sin'
+primary_region = 'bom'
 
 [build]
 
@@ -29,6 +29,6 @@ primary_region = 'sin'
     timeout = "10s"
 
 [[vm]]
-  memory = "1gb"
-  cpu_kind = "shared"
+  memory = "2gb"
+  cpu_kind = "performance"
   cpus = 1
