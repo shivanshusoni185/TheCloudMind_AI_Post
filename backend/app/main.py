@@ -5,13 +5,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
-from .database import engine, Base
+from .database import engine, Base, db_ping
 from .routers import admin, news, contact
 from .scheduler import start_scheduler, stop_scheduler
 
 logger = logging.getLogger(__name__)
 
-# Try to create tables on startup; non-fatal so the process still boots.
 try:
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables verified")
@@ -20,8 +19,6 @@ except Exception as exc:
 
 app = FastAPI(title="AI News API", version="1.0.0")
 
-# ── Middleware ────────────────────────────────────────────────────
-# GZip: compress JSON responses > 1 KB (news list can be large).
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 allowed_origins = [
@@ -41,13 +38,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Routers ───────────────────────────────────────────────────────
 app.include_router(admin.router)
 app.include_router(news.router)
 app.include_router(contact.router)
 
 
-# ── Lifecycle ─────────────────────────────────────────────────────
 @app.on_event("startup")
 async def on_startup():
     start_scheduler()
@@ -58,7 +53,6 @@ async def on_shutdown():
     stop_scheduler()
 
 
-# ── Root / Health ─────────────────────────────────────────────────
 @app.get("/")
 async def root():
     return {"message": "AI News API", "version": "1.0.0"}
@@ -67,21 +61,12 @@ async def root():
 @app.get("/health")
 async def health():
     """
-    Lightweight health check used by Fly.io probes.
+    Lightweight health probe for Fly.io.
 
-    Opens one synchronous connection to verify DB reachability, but runs
-    inside a thread so it does not block the async event loop.
+    Uses db_ping() which opens its own connection outside the shared
+    session pool — pool exhaustion during request bursts won't cause
+    the health check to fail and trigger unnecessary machine restarts.
     """
     import asyncio
-    from .database import engine as _engine
-
-    def _ping():
-        try:
-            conn = _engine.connect()
-            conn.close()
-            return "connected"
-        except Exception as exc:
-            return f"error: {str(exc)[:100]}"
-
-    db_status = await asyncio.get_event_loop().run_in_executor(None, _ping)
-    return {"status": "running", "database": db_status}
+    ok = await asyncio.get_event_loop().run_in_executor(None, db_ping)
+    return {"status": "running", "database": "connected" if ok else "unreachable"}

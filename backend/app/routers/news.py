@@ -2,6 +2,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, load_only
+from sqlalchemy import or_
 
 from ..database import get_db
 from ..models import News
@@ -10,9 +11,8 @@ from .. import cache
 
 router = APIRouter(prefix="/news", tags=["news"])
 
-# Columns needed for the list view — deliberately excludes image_data (binary blob).
-# Loading the blob for every article on the list endpoint was the primary latency
-# cause: 100 articles × ~150 KB average = ~15 MB pulled from the DB on every page load.
+# Columns for the list view — image_data (binary blob) is intentionally excluded.
+# Loading it for every article was the primary latency source.
 _LIST_COLS = [
     News.id,
     News.title,
@@ -22,16 +22,23 @@ _LIST_COLS = [
     News.created_at,
     News.updated_at,
     News.slug,
-    News.image_filename,       # used to detect whether an image exists
-    News._image_url_legacy,    # backward-compat legacy URL field
+    News.image_filename,
+    News._image_url_legacy,
     News.image_mimetype,
 ]
 
+_IMAGE_HEADERS = {
+    "Cache-Control": "public, max-age=31536000, immutable",
+}
 
+
+# ── List ──────────────────────────────────────────────────────────
+# Declared as sync `def` so FastAPI routes it through its threadpool
+# executor, which is the correct pattern for sync SQLAlchemy I/O.
 @router.get("", response_model=list[NewsListResponse])
-async def list_news(
-    search: Optional[str] = Query(None, description="Search in title and summary"),
-    tag: Optional[str] = Query(None, description="Filter by tag"),
+def list_news(
+    search: Optional[str] = Query(None),
+    tag: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     cache_key = f"news_list:{search or ''}:{tag or ''}"
@@ -39,11 +46,10 @@ async def list_news(
     if cached is not None:
         return cached
 
-    from sqlalchemy import or_
     query = (
         db.query(News)
         .options(load_only(*_LIST_COLS))
-        .filter(News.published == True)
+        .filter(News.published == True)  # noqa: E712
     )
 
     if search:
@@ -68,29 +74,29 @@ async def list_news(
     return result
 
 
+# ── Image by ID ───────────────────────────────────────────────────
+# Sync `def` — threadpool handles the blocking DB read.
+# nginx caches the response, so the DB is only hit once per image.
 @router.get("/image/{news_id}")
-async def get_news_image(news_id: int, db: Session = Depends(get_db)):
-    """Serve image binary from the database."""
+def get_news_image(news_id: int, db: Session = Depends(get_db)):
     news = db.query(News).filter(News.id == news_id).first()
-    if not news:
-        raise HTTPException(status_code=404, detail="News not found")
-    if not news.image_data:
+    if not news or not news.image_data:
         raise HTTPException(status_code=404, detail="Image not found")
 
     return Response(
         content=news.image_data,
         media_type=news.image_mimetype or "image/jpeg",
         headers={
-            "Cache-Control": "public, max-age=31536000, immutable",
+            **_IMAGE_HEADERS,
             "Content-Disposition": f'inline; filename="{news.image_filename or "image.jpg"}"',
         },
     )
 
 
+# ── Article by slug ───────────────────────────────────────────────
 @router.get("/by-slug/{slug}", response_model=NewsResponse)
-async def get_news_by_slug(slug: str, db: Session = Depends(get_db)):
-    """Get a single article by slug (full detail — image_data not needed here)."""
-    news = db.query(News).filter(News.slug == slug, News.published == True).first()
+def get_news_by_slug(slug: str, db: Session = Depends(get_db)):
+    news = db.query(News).filter(News.slug == slug, News.published == True).first()  # noqa: E712
     if not news:
         raise HTTPException(status_code=404, detail="News not found")
 
@@ -102,29 +108,27 @@ async def get_news_by_slug(slug: str, db: Session = Depends(get_db)):
     return news
 
 
+# ── Image by slug ─────────────────────────────────────────────────
 @router.get("/image/by-slug/{slug}")
-async def get_news_image_by_slug(slug: str, db: Session = Depends(get_db)):
-    """Serve image binary by article slug."""
+def get_news_image_by_slug(slug: str, db: Session = Depends(get_db)):
     news = db.query(News).filter(News.slug == slug).first()
-    if not news:
-        raise HTTPException(status_code=404, detail="News not found")
-    if not news.image_data:
+    if not news or not news.image_data:
         raise HTTPException(status_code=404, detail="Image not found")
 
     return Response(
         content=news.image_data,
         media_type=news.image_mimetype or "image/jpeg",
         headers={
-            "Cache-Control": "public, max-age=31536000, immutable",
+            **_IMAGE_HEADERS,
             "Content-Disposition": f'inline; filename="{news.image_filename or "image.jpg"}"',
         },
     )
 
 
+# ── Article by ID (compat) ────────────────────────────────────────
 @router.get("/{news_id}", response_model=NewsResponse)
-async def get_news(news_id: int, db: Session = Depends(get_db)):
-    """Get a single article by ID (backward-compat)."""
-    news = db.query(News).filter(News.id == news_id, News.published == True).first()
+def get_news(news_id: int, db: Session = Depends(get_db)):
+    news = db.query(News).filter(News.id == news_id, News.published == True).first()  # noqa: E712
     if not news:
         raise HTTPException(status_code=404, detail="News not found")
 

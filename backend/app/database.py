@@ -1,70 +1,60 @@
-from sqlalchemy import create_engine
+import logging
+import os
+
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
-import logging
 from dotenv import load_dotenv
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
 load_dotenv()
 
-# Get database URL from environment variable
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    logger.error("DATABASE_URL environment variable is not set")
     raise ValueError("DATABASE_URL environment variable is not set")
 
-# Configure SQLAlchemy engine for PostgreSQL (Supabase)
-try:
-    # PostgreSQL with connection pooling and SSL
-    connect_args = {}
+connect_args = {}
+if "sslmode" not in DATABASE_URL:
+    connect_args["sslmode"] = "require"
 
-    # Add SSL requirement for Supabase if not already in URL
-    if "sslmode" not in DATABASE_URL:
-        connect_args["sslmode"] = "require"
+engine = create_engine(
+    DATABASE_URL,
+    # Larger pool to absorb burst image requests without exhaustion.
+    # A homepage loads 20-30 images; each image request needs one connection.
+    pool_size=15,
+    max_overflow=25,      # 40 total connections at peak
+    pool_timeout=10,      # fail fast — don't queue forever
+    pool_recycle=1800,
+    pool_pre_ping=True,
+    connect_args=connect_args,
+)
+logger.info("Database engine created (pool_size=15, max_overflow=25)")
 
-    engine = create_engine(
-        DATABASE_URL,
-        pool_size=5,  # Number of connections to keep open
-        max_overflow=10,  # Additional connections when pool is exhausted
-        pool_timeout=30,  # Seconds to wait before timing out
-        pool_recycle=1800,  # Recycle connections after 30 minutes
-        pool_pre_ping=True,  # Enable connection health checks
-        connect_args=connect_args
-    )
-    logger.info("Database engine created successfully with PostgreSQL")
-except Exception as e:
-    logger.error(f"Failed to create database engine: {str(e)}")
-    raise
-
-# Create session factory with configured engine
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Base class for all models
 Base = declarative_base()
 
+
 def get_db():
-    """
-    Dependency function for database sessions.
-    Usage with FastAPI:
-        @app.get("/")
-        def endpoint(db: Session = Depends(get_db)):
-            # Use db session here
-            result = db.query(MyModel).all()
-    """
     db = SessionLocal()
     try:
-        logger.debug("Database session started")
         yield db
-        logger.debug("Database session will be committed")
-    except Exception as e:
+    except Exception as exc:
         db.rollback()
-        logger.error(f"Database error: {str(e)}")
+        logger.error("Database error: %s", exc)
         raise
     finally:
         db.close()
-        logger.debug("Database session closed")
+
+
+def db_ping() -> bool:
+    """Lightweight connectivity check that does NOT use the session pool.
+    Used by the health endpoint so pool exhaustion never blocks health probes."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception as exc:
+        logger.warning("DB ping failed: %s", exc)
+        return False
