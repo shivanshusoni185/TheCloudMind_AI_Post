@@ -96,21 +96,26 @@ class NewsListResponse(BaseModel):
     @model_validator(mode='before')
     @classmethod
     def compute_image_url(cls, data):
-        """Compute image_url from image_data if available"""
+        """
+        Compute image_url without touching image_data.
+
+        The list query uses load_only() to defer the image_data binary
+        blob (can be 50-300 KB per row). We detect image presence using
+        image_filename instead, which is always loaded.
+        """
         if isinstance(data, dict):
             return data
-        # If it's a model instance, convert to dict
         if hasattr(data, '__dict__'):
-            # Get the model's attributes
             result = {}
             for key in ['id', 'title', 'summary', 'tags', 'published', 'created_at', 'slug']:
                 if hasattr(data, key):
                     result[key] = getattr(data, key)
 
-            # Compute image_url
-            if hasattr(data, 'image_data') and data.image_data:
+            # Use image_filename (lightweight text) to detect whether an
+            # image was stored — avoids lazy-loading the binary blob.
+            if getattr(data, 'image_filename', None):
                 result['image_url'] = f"/news/image/{data.id}"
-            elif hasattr(data, '_image_url_legacy') and data._image_url_legacy:
+            elif getattr(data, '_image_url_legacy', None):
                 result['image_url'] = data._image_url_legacy
             else:
                 result['image_url'] = None

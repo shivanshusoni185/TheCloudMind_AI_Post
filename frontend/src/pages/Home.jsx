@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { Search, Loader } from 'lucide-react'
+import { Search } from 'lucide-react'
 import NewsCard from '../components/NewsCard'
-import { newsApi } from '../lib/api'
+import { newsApi, getLocalCache, setLocalCache } from '../lib/api'
 
 const CATEGORY_TABS = [
   { label: 'All News', value: '' },
@@ -20,6 +20,55 @@ const getArticleTags = (article) => {
 const hasTag = (article, tag) =>
   getArticleTags(article).some((v) => v.toLowerCase() === tag.toLowerCase())
 
+// ── Skeleton card ─────────────────────────────────────────────────
+function SkeletonCard({ compact = false }) {
+  if (compact) {
+    return (
+      <div className="flex gap-4 overflow-hidden rounded-[22px] border border-slate-200/70 bg-white/90 p-4">
+        <div className="h-20 w-20 shrink-0 animate-pulse rounded-[14px] bg-slate-200" />
+        <div className="flex-1 space-y-2 py-1">
+          <div className="h-3 w-1/3 animate-pulse rounded-full bg-slate-200" />
+          <div className="h-4 animate-pulse rounded-full bg-slate-200" />
+          <div className="h-4 w-3/4 animate-pulse rounded-full bg-slate-200" />
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-slate-200/70 bg-white/90">
+      <div className="aspect-[16/10] animate-pulse bg-slate-200" />
+      <div className="space-y-3 p-5">
+        <div className="h-3 w-1/4 animate-pulse rounded-full bg-slate-200" />
+        <div className="h-5 animate-pulse rounded-full bg-slate-200" />
+        <div className="h-5 w-5/6 animate-pulse rounded-full bg-slate-200" />
+        <div className="h-4 w-4/6 animate-pulse rounded-full bg-slate-200" />
+      </div>
+    </div>
+  )
+}
+
+function SkeletonGrid() {
+  return (
+    <div className="space-y-14">
+      <section>
+        <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+          <SkeletonCard />
+          <div className="flex flex-col gap-4">
+            <SkeletonCard compact />
+            <SkeletonCard compact />
+            <SkeletonCard compact />
+          </div>
+        </div>
+      </section>
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </section>
+    </div>
+  )
+}
+
 function Home() {
   const [articles, setArticles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -27,21 +76,42 @@ function Home() {
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [activeTag, setActiveTag] = useState('')
+  const fetchingRef = useRef(false)
+
+  const cacheKey = `news:${search}:${activeTag}`
 
   const fetchNews = useCallback(async () => {
-    setLoading(true)
+    if (fetchingRef.current) return
+    fetchingRef.current = true
     setError('')
+
+    // Show stale cache immediately — zero perceived latency on return visits
+    const cached = getLocalCache(cacheKey)
+    if (cached) {
+      setArticles(cached)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+
     try {
       const response = await newsApi.getAll(search, activeTag)
       setArticles(response.data)
+      setLoading(false)
+      if (!search) {
+        setLocalCache(cacheKey, response.data)
+      }
     } catch (err) {
       console.error('Error fetching news:', err)
-      setArticles([])
-      setError('Unable to load news right now. Please try again in a moment.')
+      if (!cached) {
+        setLoading(false)
+        setError('Unable to load news right now. Please try again in a moment.')
+      }
+      // With stale data visible, silently skip showing an error
     } finally {
-      setLoading(false)
+      fetchingRef.current = false
     }
-  }, [activeTag, search])
+  }, [activeTag, search, cacheKey])
 
   useEffect(() => {
     fetchNews()
@@ -98,7 +168,6 @@ function Home() {
         <section className="mb-8 md:mb-10">
           <div className="glass-panel rounded-[24px] px-4 py-4 sm:px-6 sm:py-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              {/* Category tabs */}
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
                   Browse by topic
@@ -124,7 +193,6 @@ function Home() {
                 </div>
               </div>
 
-              {/* Search */}
               <form onSubmit={handleSearch} className="w-full lg:max-w-xl">
                 <div className="flex gap-2 sm:gap-3">
                   <div className="relative flex-1">
@@ -163,11 +231,9 @@ function Home() {
           </h1>
         </section>
 
-        {/* Content area */}
+        {/* Content */}
         {loading ? (
-          <div className="flex justify-center py-24">
-            <Loader className="h-8 w-8 animate-spin text-teal-600" />
-          </div>
+          <SkeletonGrid />
         ) : error ? (
           <div className="rounded-[28px] border border-red-200 bg-white/90 p-10 text-center shadow-sm">
             <p className="text-lg font-medium text-red-600">{error}</p>
@@ -185,15 +251,13 @@ function Home() {
         ) : (
           <div className="space-y-14">
 
-            {/* Hero: featured + 3 secondary */}
+            {/* Hero */}
             {featuredArticle && (
               <section>
                 <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-                  {/* Featured card — bigger */}
                   <div className="overflow-hidden rounded-[32px] border border-slate-200/70 bg-white/90 shadow-[0_22px_65px_rgba(15,23,42,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_80px_rgba(15,23,42,0.12)]">
-                    <NewsCard article={featuredArticle} featured />
+                    <NewsCard article={featuredArticle} />
                   </div>
-                  {/* 3 compact secondary cards */}
                   <div className="flex flex-col gap-4">
                     {secondaryArticles.map((article) => (
                       <NewsCard key={article.id} article={article} compact />
@@ -203,10 +267,9 @@ function Home() {
               </section>
             )}
 
-            {/* AI Desk + Sports Desk strips (only on All News tab) */}
+            {/* AI + Sports desk strips */}
             {!activeTag && (
               <section className="grid gap-8 xl:grid-cols-2">
-                {/* AI Desk */}
                 {aiArticles.length > 0 && (
                   <div className="rounded-[30px] border border-slate-200/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.05)] sm:p-6">
                     <div className="mb-5 flex items-center justify-between gap-4">
@@ -234,7 +297,6 @@ function Home() {
                   </div>
                 )}
 
-                {/* Sports Desk */}
                 {sportsArticles.length > 0 && (
                   <div className="rounded-[30px] border border-slate-200/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.05)] sm:p-6">
                     <div className="mb-5 flex items-center justify-between gap-4">
@@ -264,7 +326,7 @@ function Home() {
               </section>
             )}
 
-            {/* More coverage grid */}
+            {/* More coverage */}
             {restArticles.length > 0 && (
               <section>
                 <div className="mb-6">

@@ -5,6 +5,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .services.auto_publish import run_auto_publish
+from . import cache as news_cache
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ def _env_bool(name: str, default: bool) -> bool:
 def _run_job() -> None:
     logger.info("Starting scheduled auto-publish job")
     stats = run_auto_publish(max_per_topic=int(os.getenv("AUTO_PUBLISH_MAX_PER_TOPIC", "5")))
+    news_cache.invalidate()
     logger.info("Scheduled auto-publish completed: %s", stats)
 
 

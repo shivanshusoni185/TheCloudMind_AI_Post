@@ -7,6 +7,7 @@ from ..database import get_db
 from ..models import News, generate_slug
 from ..schemas import NewsResponse, Token
 from ..auth import authenticate_admin, create_access_token, get_current_admin
+from .. import cache as news_cache
 from ..services.auto_publish import (
     refresh_automated_article_content,
     refresh_automated_article_images,
@@ -143,6 +144,7 @@ async def create_news(
     db.add(news)
     db.commit()
     db.refresh(news)
+    news_cache.invalidate()
     return news
 
 
@@ -215,6 +217,7 @@ async def update_news(
 
     db.commit()
     db.refresh(news)
+    news_cache.invalidate()
     return news
 
 
@@ -230,6 +233,7 @@ async def delete_news(
 
     db.delete(news)
     db.commit()
+    news_cache.invalidate()
     return {"message": "News deleted successfully"}
 
 
@@ -255,6 +259,7 @@ async def run_automation(
     current_admin: str = Depends(get_current_admin)
 ):
     stats = run_auto_publish()
+    news_cache.invalidate()
     return {"message": "Automation run completed", "created": stats}
 
 
@@ -263,6 +268,7 @@ async def refresh_automation_images(
     current_admin: str = Depends(get_current_admin)
 ):
     stats = refresh_automated_article_images()
+    news_cache.invalidate()
     return {"message": "Automation images refreshed", "updated": stats}
 
 
@@ -271,4 +277,5 @@ async def refresh_automation_content(
     current_admin: str = Depends(get_current_admin)
 ):
     stats = refresh_automated_article_content()
+    news_cache.invalidate()
     return {"message": "Automation content refreshed", "updated": stats}
