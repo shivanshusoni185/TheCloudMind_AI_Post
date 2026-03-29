@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, load_only
-from sqlalchemy import or_
+from sqlalchemy import or_, cast, Text
 
 from ..database import get_db
 from ..models import News
@@ -59,7 +59,8 @@ def list_news(
         )
 
     if tag:
-        query = query.filter(News.tags.ilike(f"%{tag}%"))
+        # tags is a JSON column — cast to text before ILIKE
+        query = query.filter(cast(News.tags, Text).ilike(f"%{tag}%"))
 
     rows = query.order_by(News.created_at.desc()).all()
 
