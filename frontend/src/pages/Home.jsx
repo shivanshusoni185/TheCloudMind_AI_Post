@@ -11,19 +11,14 @@ const CATEGORY_TABS = [
 ]
 
 const getArticleTags = (article) => {
-  if (Array.isArray(article.tags)) {
-    return article.tags
-  }
-
-  if (typeof article.tags === 'string') {
-    return article.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
-  }
-
+  if (Array.isArray(article.tags)) return article.tags
+  if (typeof article.tags === 'string')
+    return article.tags.split(',').map((t) => t.trim()).filter(Boolean)
   return []
 }
 
 const hasTag = (article, tag) =>
-  getArticleTags(article).some((value) => value.toLowerCase() === tag.toLowerCase())
+  getArticleTags(article).some((v) => v.toLowerCase() === tag.toLowerCase())
 
 function Home() {
   const [articles, setArticles] = useState([])
@@ -32,10 +27,6 @@ function Home() {
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [activeTag, setActiveTag] = useState('')
-
-  useEffect(() => {
-    fetchNews()
-  }, [fetchNews])
 
   const fetchNews = useCallback(async () => {
     setLoading(true)
@@ -52,15 +43,25 @@ function Home() {
     }
   }, [activeTag, search])
 
+  useEffect(() => {
+    fetchNews()
+  }, [fetchNews])
+
   const featuredArticle = articles[0]
-  const secondaryArticles = articles.slice(1, 7)
-  const restArticles = articles.slice(7)
-  const aiArticles = useMemo(() => articles.filter((article) => hasTag(article, 'AI')), [articles])
-  const sportsArticles = useMemo(() => articles.filter((article) => hasTag(article, 'Sports')), [articles])
+  const secondaryArticles = articles.slice(1, 4)
+  const restArticles = articles.slice(4)
+  const aiArticles = useMemo(
+    () => articles.filter((a) => hasTag(a, 'AI')),
+    [articles],
+  )
+  const sportsArticles = useMemo(
+    () => articles.filter((a) => hasTag(a, 'Sports')),
+    [articles],
+  )
 
   const activeLabel = useMemo(
-    () => CATEGORY_TABS.find((tab) => tab.value === activeTag)?.label ?? 'All News',
-    [activeTag]
+    () => CATEGORY_TABS.find((t) => t.value === activeTag)?.label ?? 'All News',
+    [activeTag],
   )
 
   const handleSearch = (e) => {
@@ -71,16 +72,16 @@ function Home() {
   return (
     <>
       <Helmet>
-        <title>TheCloudMind.ai - AI and Sports Newsroom</title>
+        <title>TheCloudMind.ai — AI and Sports Newsroom</title>
         <meta
           name="description"
           content="Direct-source AI and sports coverage, rewritten into concise original analysis for fast reading."
         />
         <meta
           name="keywords"
-          content="AI news, sports news, artificial intelligence, analysis, newsroom, direct sources"
+          content="AI news, sports news, artificial intelligence, analysis, newsroom"
         />
-        <meta property="og:title" content="TheCloudMind.ai - AI and Sports Newsroom" />
+        <meta property="og:title" content="TheCloudMind.ai — AI and Sports Newsroom" />
         <meta
           property="og:description"
           content="Original AI and sports coverage built from direct sources and rewritten for clarity."
@@ -92,13 +93,16 @@ function Home() {
       </Helmet>
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <section className="sticky top-[72px] z-30 -mx-1 mb-8 px-1 md:static md:top-auto md:z-auto md:mx-0 md:mb-10 md:px-0">
-          <div className="glass-panel rounded-[26px] border-white/80 px-4 py-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] sm:px-6 sm:py-5">
+
+        {/* Filter + Search bar */}
+        <section className="mb-8 md:mb-10">
+          <div className="glass-panel rounded-[24px] px-4 py-4 sm:px-6 sm:py-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              {/* Category tabs */}
               <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Filter coverage
-                </div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  Browse by topic
+                </p>
                 <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {CATEGORY_TABS.map((tab) => {
                     const isActive = tab.value === activeTag
@@ -107,7 +111,7 @@ function Home() {
                         key={tab.label}
                         type="button"
                         onClick={() => setActiveTag(tab.value)}
-                        className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                        className={`shrink-0 rounded-full border px-5 py-2 text-sm font-semibold transition ${
                           isActive
                             ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
                             : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950'
@@ -120,21 +124,22 @@ function Home() {
                 </div>
               </div>
 
-              <form onSubmit={handleSearch} className="w-full lg:max-w-2xl">
-                <div className="flex flex-col gap-3 sm:flex-row">
+              {/* Search */}
+              <form onSubmit={handleSearch} className="w-full lg:max-w-xl">
+                <div className="flex gap-2 sm:gap-3">
                   <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
-                      placeholder="Search stories, teams, companies, markets..."
-                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-12 pr-4 text-sm text-slate-900 outline-none transition focus:border-teal-500"
+                      placeholder="Search stories…"
+                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="rounded-2xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 sm:min-w-[120px]"
+                    className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                   >
                     Search
                   </button>
@@ -144,24 +149,23 @@ function Home() {
           </div>
         </section>
 
-        <section>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-                {activeLabel}
-              </div>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-                Original reporting built for fast reading
-              </h1>
-            </div>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600 lg:text-right">
-              Source-grounded AI and sports coverage, rewritten into a cleaner editorial format for client demos, briefings, and publishing.
-            </p>
-          </div>
+        {/* Section heading */}
+        <section className="mb-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+            {activeLabel}
+          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+            {activeTag === 'AI'
+              ? 'AI coverage — analysis and developments'
+              : activeTag === 'Sports'
+              ? 'Sports coverage — results and analysis'
+              : 'Original reporting built for fast reading'}
+          </h1>
         </section>
 
+        {/* Content area */}
         {loading ? (
-          <div className="flex justify-center py-20">
+          <div className="flex justify-center py-24">
             <Loader className="h-8 w-8 animate-spin text-teal-600" />
           </div>
         ) : error ? (
@@ -169,7 +173,7 @@ function Home() {
             <p className="text-lg font-medium text-red-600">{error}</p>
             <button
               onClick={fetchNews}
-              className="mt-5 rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              className="mt-5 rounded-full bg-slate-950 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               Retry
             </button>
@@ -179,42 +183,50 @@ function Home() {
             <p className="text-xl text-slate-500">No articles found.</p>
           </div>
         ) : (
-          <div className="mt-10 space-y-12">
+          <div className="space-y-14">
+
+            {/* Hero: featured + 3 secondary */}
             {featuredArticle && (
-              <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr] xl:items-stretch">
-                <div className="glass-panel overflow-hidden rounded-[34px] p-4">
-                  <NewsCard article={featuredArticle} />
-                </div>
-                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
-                  {secondaryArticles.slice(0, 3).map(article => (
-                    <NewsCard key={article.id} article={article} />
-                  ))}
+              <section>
+                <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+                  {/* Featured card — bigger */}
+                  <div className="overflow-hidden rounded-[32px] border border-slate-200/70 bg-white/90 shadow-[0_22px_65px_rgba(15,23,42,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_80px_rgba(15,23,42,0.12)]">
+                    <NewsCard article={featuredArticle} featured />
+                  </div>
+                  {/* 3 compact secondary cards */}
+                  <div className="flex flex-col gap-4">
+                    {secondaryArticles.map((article) => (
+                      <NewsCard key={article.id} article={article} compact />
+                    ))}
+                  </div>
                 </div>
               </section>
             )}
 
+            {/* AI Desk + Sports Desk strips (only on All News tab) */}
             {!activeTag && (
               <section className="grid gap-8 xl:grid-cols-2">
+                {/* AI Desk */}
                 {aiArticles.length > 0 && (
                   <div className="rounded-[30px] border border-slate-200/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.05)] sm:p-6">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="mb-5 flex items-center justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold uppercase tracking-[0.24em] text-teal-700">
+                        <span className="inline-block rounded-full bg-teal-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-teal-700">
                           AI Desk
-                        </div>
-                        <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-                          AI coverage strip
+                        </span>
+                        <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-950">
+                          Artificial Intelligence
                         </h2>
                       </div>
                       <button
                         type="button"
                         onClick={() => setActiveTag('AI')}
-                        className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+                        className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-teal-300 hover:text-teal-700"
                       >
-                        View AI
+                        See all AI →
                       </button>
                     </div>
-                    <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       {aiArticles.slice(0, 4).map((article) => (
                         <NewsCard key={article.id} article={article} />
                       ))}
@@ -222,26 +234,27 @@ function Home() {
                   </div>
                 )}
 
+                {/* Sports Desk */}
                 {sportsArticles.length > 0 && (
                   <div className="rounded-[30px] border border-slate-200/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.05)] sm:p-6">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="mb-5 flex items-center justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold uppercase tracking-[0.24em] text-blue-700">
+                        <span className="inline-block rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-700">
                           Sports Desk
-                        </div>
-                        <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-                          Sports coverage strip
+                        </span>
+                        <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-950">
+                          Sports Coverage
                         </h2>
                       </div>
                       <button
                         type="button"
                         onClick={() => setActiveTag('Sports')}
-                        className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+                        className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
                       >
-                        View Sports
+                        See all Sports →
                       </button>
                     </div>
-                    <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       {sportsArticles.slice(0, 4).map((article) => (
                         <NewsCard key={article.id} article={article} />
                       ))}
@@ -251,20 +264,19 @@ function Home() {
               </section>
             )}
 
+            {/* More coverage grid */}
             {restArticles.length > 0 && (
               <section>
-                <div className="mb-5 flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-                      More coverage
-                    </div>
-                    <h2 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
-                      Fresh analysis across AI and sport
-                    </h2>
-                  </div>
+                <div className="mb-6">
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+                    More coverage
+                  </p>
+                  <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
+                    Fresh analysis across AI and sport
+                  </h2>
                 </div>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {restArticles.map(article => (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {restArticles.map((article) => (
                     <NewsCard key={article.id} article={article} />
                   ))}
                 </div>

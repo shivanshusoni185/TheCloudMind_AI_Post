@@ -1,20 +1,33 @@
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, Settings } from 'lucide-react'
+import { LogOut, Settings, Menu, X } from 'lucide-react'
 import logo from '../assets/logo.jpg'
+
+const NAV_LINKS = [
+  { to: '/', label: 'Home' },
+  { to: '/latest-news', label: 'Latest' },
+  { to: '/about', label: 'About' },
+  { to: '/contact', label: 'Contact' },
+]
 
 function Header() {
   const navigate = useNavigate()
   const token = localStorage.getItem('token')
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const handleLogout = () => {
     localStorage.removeItem('token')
+    setMobileOpen(false)
     navigate('/')
   }
+
+  const closeMobile = () => setMobileOpen(false)
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/60 bg-white/75 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-        <Link to="/" className="flex items-center gap-3">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-3" onClick={closeMobile}>
           <img
             src={logo}
             alt="TheCloudMind.ai"
@@ -30,19 +43,17 @@ function Header() {
           </div>
         </Link>
 
+        {/* Desktop Nav */}
         <nav className="hidden items-center gap-8 md:flex">
-          <Link to="/" className="text-sm font-medium text-slate-700 transition hover:text-slate-950">
-            Home
-          </Link>
-          <Link to="/latest-news" className="text-sm font-medium text-slate-700 transition hover:text-slate-950">
-            Latest
-          </Link>
-          <Link to="/about" className="text-sm font-medium text-slate-700 transition hover:text-slate-950">
-            About
-          </Link>
-          <Link to="/contact" className="text-sm font-medium text-slate-700 transition hover:text-slate-950">
-            Contact
-          </Link>
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className="text-sm font-medium text-slate-700 transition hover:text-slate-950"
+            >
+              {link.label}
+            </Link>
+          ))}
           <a
             href="https://www.youtube.com/@CloudMindAI"
             target="_blank"
@@ -61,25 +72,96 @@ function Header() {
           </a>
         </nav>
 
-        {token && (
-          <div className="flex items-center gap-2">
-            <Link
-              to="/admin"
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-            >
-              <Settings className="h-4 w-4" />
-              Dashboard
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </button>
-          </div>
-        )}
+        {/* Desktop Admin Controls */}
+        <div className="hidden items-center gap-2 md:flex">
+          {token && (
+            <>
+              <Link
+                to="/admin"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                <Settings className="h-4 w-4" />
+                Dashboard
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Mobile Hamburger */}
+        <button
+          type="button"
+          onClick={() => setMobileOpen((prev) => !prev)}
+          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition hover:bg-slate-50 md:hidden"
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+        >
+          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
       </div>
+
+      {/* Mobile Dropdown */}
+      {mobileOpen && (
+        <div className="border-t border-slate-100 bg-white/98 shadow-xl backdrop-blur-xl md:hidden">
+          <div className="mx-auto max-w-7xl divide-y divide-slate-100 px-4 py-3 sm:px-6">
+            <div className="flex flex-col pb-3">
+              {NAV_LINKS.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={closeMobile}
+                  className="rounded-xl px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-slate-50 hover:text-slate-950"
+                >
+                  {link.label}
+                </Link>
+              ))}
+              <a
+                href="https://www.youtube.com/@CloudMindAI"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeMobile}
+                className="rounded-xl px-4 py-3 text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-red-600"
+              >
+                YouTube
+              </a>
+              <a
+                href="https://www.instagram.com/thecloudmind.ai/"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeMobile}
+                className="rounded-xl px-4 py-3 text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-pink-600"
+              >
+                Instagram
+              </a>
+            </div>
+
+            {token && (
+              <div className="flex flex-col gap-2 pt-3">
+                <Link
+                  to="/admin"
+                  onClick={closeMobile}
+                  className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+                >
+                  <Settings className="h-4 w-4" />
+                  Admin Dashboard
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 transition hover:bg-red-100"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   )
 }
