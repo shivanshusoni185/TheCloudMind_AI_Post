@@ -7,6 +7,8 @@ import { newsApi, getLocalCache, setLocalCache } from '../lib/api'
 const CATEGORY_TABS = [
   { label: 'All News', value: '' },
   { label: 'AI', value: 'AI' },
+  { label: 'Cricket', value: 'Cricket' },
+  { label: 'IPL', value: 'IPL' },
   { label: 'Sports', value: 'Sports' },
 ]
 
@@ -124,8 +126,8 @@ function Home() {
     () => articles.filter((a) => hasTag(a, 'AI')),
     [articles],
   )
-  const sportsArticles = useMemo(
-    () => articles.filter((a) => hasTag(a, 'Sports')),
+  const cricketArticles = useMemo(
+    () => articles.filter((a) => hasTag(a, 'Cricket') || hasTag(a, 'IPL')),
     [articles],
   )
 
@@ -142,19 +144,19 @@ function Home() {
   return (
     <>
       <Helmet>
-        <title>TheCloudMind.ai — AI and Sports Newsroom</title>
+        <title>TheCloudMind.ai — AI, Cricket and IPL Newsroom</title>
         <meta
           name="description"
-          content="Direct-source AI and sports coverage, rewritten into concise original analysis for fast reading."
+          content="Direct-source AI and cricket/IPL coverage, rewritten into concise original analysis for fast reading."
         />
         <meta
           name="keywords"
-          content="AI news, sports news, artificial intelligence, analysis, newsroom"
+          content="AI news, cricket news, IPL news, artificial intelligence, analysis, newsroom"
         />
-        <meta property="og:title" content="TheCloudMind.ai — AI and Sports Newsroom" />
+        <meta property="og:title" content="TheCloudMind.ai — AI, Cricket and IPL Newsroom" />
         <meta
           property="og:description"
-          content="Original AI and sports coverage built from direct sources and rewritten for clarity."
+          content="Original AI and cricket/IPL coverage built from direct sources and rewritten for clarity."
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://cloudmindai.in/" />
@@ -225,6 +227,10 @@ function Home() {
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
             {activeTag === 'AI'
               ? 'AI coverage — analysis and developments'
+              : activeTag === 'Cricket'
+              ? 'Cricket coverage — latest news and analysis'
+              : activeTag === 'IPL'
+              ? 'IPL coverage — live updates and match analysis'
               : activeTag === 'Sports'
               ? 'Sports coverage — results and analysis'
               : 'Original reporting built for fast reading'}
@@ -297,27 +303,27 @@ function Home() {
                   </div>
                 )}
 
-                {sportsArticles.length > 0 && (
+                {cricketArticles.length > 0 && (
                   <div className="rounded-[30px] border border-slate-200/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.05)] sm:p-6">
                     <div className="mb-5 flex items-center justify-between gap-4">
                       <div>
                         <span className="inline-block rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-700">
-                          Sports Desk
+                          Cricket Desk
                         </span>
                         <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-950">
-                          Sports Coverage
+                          Cricket & IPL
                         </h2>
                       </div>
                       <button
                         type="button"
-                        onClick={() => setActiveTag('Sports')}
+                        onClick={() => setActiveTag('Cricket')}
                         className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
                       >
-                        See all Sports →
+                        See all Cricket →
                       </button>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {sportsArticles.slice(0, 4).map((article) => (
+                      {cricketArticles.slice(0, 4).map((article) => (
                         <NewsCard key={article.id} article={article} />
                       ))}
                     </div>
@@ -334,7 +340,7 @@ function Home() {
                     More coverage
                   </p>
                   <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-                    Fresh analysis across AI and sport
+                    Fresh analysis across AI and cricket
                   </h2>
                 </div>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

@@ -51,11 +51,16 @@ SOURCE_NAME_MAP = {
     "theverge.com": "The Verge",
     "www.marktechpost.com": "MarkTechPost",
     "marktechpost.com": "MarkTechPost",
-    "www.espn.com": "ESPN",
-    "espn.com": "ESPN",
-    "sportstar.thehindu.com": "Sportstar",
-    "www.cbssports.com": "CBS Sports",
-    "cbssports.com": "CBS Sports",
+    "www.espncricinfo.com": "ESPNcricinfo",
+    "espncricinfo.com": "ESPNcricinfo",
+    "sports.ndtv.com": "NDTV Sports",
+    "www.crictracker.com": "CricTracker",
+    "crictracker.com": "CricTracker",
+    "www.hindustantimes.com": "Hindustan Times",
+    "hindustantimes.com": "Hindustan Times",
+    "timesofindia.indiatimes.com": "Times of India",
+    "www.cricketcountry.com": "Cricket Country",
+    "cricketcountry.com": "Cricket Country",
 }
 
 
@@ -94,22 +99,22 @@ FEEDS: tuple[FeedConfig, ...] = (
         tags=["AI", "Automation", "Analysis"],
     ),
     FeedConfig(
-        topic="sports",
-        source_name="ESPN",
-        url="https://www.espn.com/espn/rss/news",
-        tags=["Sports", "Automation", "Analysis"],
+        topic="cricket",
+        source_name="ESPNcricinfo",
+        url="https://www.espncricinfo.com/rss/content/story/feeds/0.xml",
+        tags=["Cricket", "IPL", "Sports", "Automation", "Analysis"],
     ),
     FeedConfig(
-        topic="sports",
-        source_name="Sportstar",
-        url="https://sportstar.thehindu.com/feeder/default.rss",
-        tags=["Sports", "Automation", "Analysis"],
+        topic="cricket",
+        source_name="NDTV Sports",
+        url="https://sports.ndtv.com/cricket/rss",
+        tags=["Cricket", "IPL", "Sports", "Automation", "Analysis"],
     ),
     FeedConfig(
-        topic="sports",
-        source_name="CBS Sports",
-        url="https://www.cbssports.com/rss/headlines/",
-        tags=["Sports", "Automation", "Analysis"],
+        topic="cricket",
+        source_name="CricTracker",
+        url="https://www.crictracker.com/feed/",
+        tags=["Cricket", "IPL", "Sports", "Automation", "Analysis"],
     ),
 )
 
@@ -239,21 +244,61 @@ def _extract_article_text(article_html: Optional[str]) -> str:
     return "\n\n".join(excerpt)
 
 
+_MIN_IMAGE_DIMENSION = 200  # ignore tiny icons / tracking pixels
+
+
+def _is_likely_article_image(tag) -> bool:
+    """Return True if an <img> tag looks like a real article photo (not icon/tracker)."""
+    src = tag.get("src") or tag.get("data-src") or ""
+    if not src or src.startswith("data:"):
+        return False
+    if _is_placeholder_image_url(src):
+        return False
+    # Skip tiny images based on width/height attributes
+    try:
+        w = int(tag.get("width") or 0)
+        h = int(tag.get("height") or 0)
+        if (w and w < _MIN_IMAGE_DIMENSION) or (h and h < _MIN_IMAGE_DIMENSION):
+            return False
+    except (ValueError, TypeError):
+        pass
+    return True
+
+
 def _extract_image_url(entry: dict, article_html: Optional[str]) -> Optional[str]:
     if article_html:
         soup = BeautifulSoup(article_html, "html.parser")
-        selectors = [
+
+        # 1. Meta tags — most reliable
+        for tag_name, attrs in [
             ("meta", {"property": "og:image"}),
             ("meta", {"name": "twitter:image"}),
             ("meta", {"property": "og:image:url"}),
-        ]
-        for tag_name, attrs in selectors:
+        ]:
             tag = soup.find(tag_name, attrs=attrs)
             if tag and tag.get("content"):
                 url = tag["content"].strip()
-                if not _is_placeholder_image_url(url):
+                if url and not _is_placeholder_image_url(url):
                     return url
 
+        # 2. First sizeable image inside the article body
+        body_selectors = [
+            "article img",
+            "main img",
+            ".article-content img",
+            ".story-body img",
+            ".entry-content img",
+            ".c-entry-content img",
+            ".post-content img",
+        ]
+        for selector in body_selectors:
+            for img in soup.select(selector):
+                if _is_likely_article_image(img):
+                    src = img.get("src") or img.get("data-src") or ""
+                    if src and src.startswith("http"):
+                        return src
+
+    # 3. RSS media items
     for key in ("media_content", "media_thumbnail"):
         media_items = entry.get(key) or []
         for item in media_items:
@@ -745,7 +790,7 @@ def refresh_automated_article_content(limit: int = 25) -> dict[str, int]:
             if not source_url:
                 continue
 
-            topic = "sports" if "Sports" in tags else "ai"
+            topic = "cricket" if "Cricket" in tags or "IPL" in tags else "ai"
             feed = FeedConfig(
                 topic=topic,
                 source_name=_extract_source_name_from_url(source_url),
@@ -792,7 +837,7 @@ def _iter_entries(feed: FeedConfig, limit: int) -> Iterable[dict]:
 
 
 def run_auto_publish(max_per_topic: int = 5) -> dict[str, int]:
-    stats = {"ai": 0, "sports": 0}
+    stats = {"ai": 0, "cricket": 0}
     db = SessionLocal()
     try:
         for feed in FEEDS:
