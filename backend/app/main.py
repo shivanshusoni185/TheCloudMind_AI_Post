@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +18,15 @@ try:
 except Exception as exc:
     logger.error("Failed to create database tables: %s", exc)
 
-app = FastAPI(title="AI News API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_scheduler()
+    yield
+    stop_scheduler()
+
+
+app = FastAPI(title="AI News API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
@@ -41,16 +50,6 @@ app.add_middleware(
 app.include_router(admin.router)
 app.include_router(news.router)
 app.include_router(contact.router)
-
-
-@app.on_event("startup")
-async def on_startup():
-    start_scheduler()
-
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    stop_scheduler()
 
 
 @app.get("/")
