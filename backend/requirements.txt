@@ -14,3 +14,4 @@ feedparser
 requests
 beautifulsoup4
 duckduckgo-search
+crewai>=0.80.0

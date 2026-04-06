@@ -1,51 +1,57 @@
 """
-Agent-based news pipeline.
+CrewAI-powered news pipeline.
 
-Flow:
-  NewsDiscoveryAgent  →  ContentWriterAgent  →  ImageFinderAgent  →  save to DB
+Architecture
+------------
+Phase 1 – Discovery (plain Python, deterministic)
+  NewsDiscoveryAgent  →  list[DiscoveredNews]   (DuckDuckGo News, no LLM)
 
-* No hardcoded RSS feeds or source names.
-* DuckDuckGo News  – discovers what is trending right now.
-* DuckDuckGo Images – finds a visually-relevant photo for every article.
-* GPT (optional)   – extracts a precise image-search query from the headline.
-* Wikipedia        – final image fallback.
+Phase 2 – Processing (CrewAI crew, per article)
+  ContentWriterAgent  →  fetches source HTML, writes polished article (LLM)
+  ImageResearcherAgent →  finds specific, high-quality image (LLM + DDG + Wikipedia)
+
+Phase 3 – Persistence (plain Python, deterministic)
+  Save article + image to database via SQLAlchemy
+
+Why CrewAI?
+  • Role / goal / backstory dramatically improves GPT output quality
+  • Tools are first-class: agents decide HOW and WHEN to call them
+  • Sequential Process wires the pipeline with context passing
+  • Built-in retry + max_iter guards against runaway LLM loops
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import re
 import time
 from dataclasses import dataclass
 from typing import Optional
 
-import requests
+from pydantic import BaseModel
+from crewai import Agent, Task, Crew, Process, LLM
+from crewai.tools import BaseTool
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import News, generate_slug
 from .auto_publish import (
-    FeedConfig,
     StoryDraft,
-    USER_AGENT,
     OPENAI_API_KEY,
     OPENAI_MODEL,
-    OPENAI_CHAT_COMPLETIONS_URL,
-    _build_story_from_source,
-    _clean_title,
     _download_image,
     _fetch_article_assets,
     _fetch_wikipedia_image,
     _generate_unique_slug,
     _source_exists,
     _story_exists,
+    _clean_title,
 )
 
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Broad topic buckets the agent searches.  No source names – DDG picks them.
+# Topic buckets – DDG picks the sources, no RSS feeds needed
 # ──────────────────────────────────────────────────────────────────────────────
 _TOPIC_BUCKETS: list[dict] = [
     {
@@ -67,37 +73,123 @@ _TOPIC_BUCKETS: list[dict] = [
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Data classes
+# Data types
 # ──────────────────────────────────────────────────────────────────────────────
 
 @dataclass
 class DiscoveredNews:
     title: str
     url: str
-    body: str          # snippet from DDG
-    source: str        # publication name returned by DDG
+    body: str       # DDG snippet
+    source: str     # publication name
     topic: str
     tags: list[str]
 
 
+class ArticleOutput(BaseModel):
+    """Structured output expected from the ContentWriter agent."""
+    title: str
+    summary: str
+    content: str
+
+
 # ──────────────────────────────────────────────────────────────────────────────
-# Agent 1 – NewsDiscoveryAgent
+# CrewAI Tools
+# ──────────────────────────────────────────────────────────────────────────────
+
+class ArticleFetcherTool(BaseTool):
+    name: str = "fetch_article"
+    description: str = (
+        "Fetches the full text content of a news article from its URL. "
+        "Pass the article URL as input. Returns the article body text."
+    )
+
+    def _run(self, url: str) -> str:
+        try:
+            html, resolved_url, _ = _fetch_article_assets(url.strip())
+            if not html:
+                return "Could not fetch article content."
+            # Return plain text (BeautifulSoup strips HTML for the LLM)
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html, "html.parser")
+            for tag in soup(["script", "style", "nav", "header", "footer", "aside"]):
+                tag.decompose()
+            text = soup.get_text(separator="\n", strip=True)
+            return text[:6000]  # cap to avoid token overflow
+        except Exception as exc:
+            logger.warning("[ArticleFetcherTool] failed for %s: %s", url, exc)
+            return "Could not fetch article content."
+
+
+class DDGImageSearchTool(BaseTool):
+    name: str = "search_image_ddg"
+    description: str = (
+        "Search DuckDuckGo Images for a news-relevant photo. "
+        "Input should be a specific 3-6 word query using person names, "
+        "team names, or product names — not generic words like 'news'. "
+        "Returns a direct image URL or empty string."
+    )
+
+    def _run(self, query: str) -> str:
+        try:
+            from duckduckgo_search import DDGS
+            with DDGS() as ddgs:
+                hits = list(
+                    ddgs.images(
+                        query.strip(),
+                        max_results=15,
+                        safesearch="off",
+                        type_image="photo",
+                    )
+                )
+            for hit in hits:
+                img_url = hit.get("image", "")
+                if not img_url or not img_url.startswith("http"):
+                    continue
+                w = hit.get("width") or 0
+                h = hit.get("height") or 0
+                if (w and w < 400) or (h and h < 300):
+                    continue
+                logger.info("[DDGImageSearchTool] found: %s", img_url)
+                return img_url
+        except Exception as exc:
+            logger.warning("[DDGImageSearchTool] failed for '%s': %s", query, exc)
+        return ""
+
+
+class WikipediaImageTool(BaseTool):
+    name: str = "search_image_wikipedia"
+    description: str = (
+        "Get the main image from a Wikipedia article. "
+        "Use this as a fallback when DDG image search returns nothing. "
+        "Input should be the topic or person name to search on Wikipedia. "
+        "Returns a direct image URL or empty string."
+    )
+
+    def _run(self, topic: str) -> str:
+        try:
+            url = _fetch_wikipedia_image(topic.strip(), [])
+            return url or ""
+        except Exception as exc:
+            logger.warning("[WikipediaImageTool] failed for '%s': %s", topic, exc)
+        return ""
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Phase 1 – News Discovery (plain Python, deterministic, no LLM cost)
 # ──────────────────────────────────────────────────────────────────────────────
 
 class NewsDiscoveryAgent:
     """
-    Searches DuckDuckGo News for each topic bucket and returns a flat list
-    of DiscoveredNews items.  Works with any trending topic – no feeds needed.
+    Searches DuckDuckGo News for each topic bucket.
+    No LLM involved – this is fast, cheap, and deterministic.
     """
 
     def run(self, max_per_bucket: int = 5) -> list[DiscoveredNews]:
         try:
             from duckduckgo_search import DDGS
         except ImportError:
-            logger.error(
-                "duckduckgo-search is not installed. "
-                "Add it to requirements.txt and run: pip install duckduckgo-search"
-            )
+            logger.error("duckduckgo-search not installed. Run: pip install duckduckgo-search")
             return []
 
         results: list[DiscoveredNews] = []
@@ -111,7 +203,7 @@ class NewsDiscoveryAgent:
                         ddgs.news(
                             bucket["query"],
                             max_results=max_per_bucket * 3,
-                            region="in-en",   # India / English
+                            region="in-en",
                             safesearch="off",
                         )
                     )
@@ -134,326 +226,260 @@ class NewsDiscoveryAgent:
                     if len(bucket_results) >= max_per_bucket:
                         break
 
-                logger.info(
-                    "[NewsDiscoveryAgent] topic='%s'  found=%d",
-                    bucket["topic"], len(bucket_results),
-                )
+                logger.info("[Discovery] topic='%s' found=%d", bucket["topic"], len(bucket_results))
                 results.extend(bucket_results)
-                time.sleep(1.5)  # DDG rate-limit courtesy
+                time.sleep(1.5)
 
             except Exception as exc:
-                logger.warning(
-                    "[NewsDiscoveryAgent] topic='%s' failed: %s",
-                    bucket["topic"], exc,
-                )
+                logger.warning("[Discovery] topic='%s' failed: %s", bucket["topic"], exc)
 
         return results
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Agent 2 – ImageFinderAgent
+# Phase 2 – CrewAI crew: ContentWriter + ImageResearcher
 # ──────────────────────────────────────────────────────────────────────────────
 
-class ImageFinderAgent:
+def _build_llm() -> LLM:
+    return LLM(
+        model=f"openai/{OPENAI_MODEL}",
+        api_key=OPENAI_API_KEY,
+        temperature=0.5,
+    )
+
+
+def _run_article_crew(item: DiscoveredNews) -> tuple[Optional[ArticleOutput], Optional[str]]:
     """
-    Finds a contextually-relevant image for an article.
+    Run a two-agent CrewAI crew for one article.
 
-    Steps
-    -----
-    1. Ask GPT to extract a *specific* image-search query from the headline
-       (e.g. "MS Dhoni batting CSK" instead of generic "cricket player").
-    2. Search DuckDuckGo Images with that query.
-    3. Download the first valid photo.
-    4. Fall back to Wikipedia if DDG returns nothing.
+    Returns
+    -------
+    (ArticleOutput, image_url) or (None, None) on failure.
+    image_url may be None if no image was found.
     """
+    llm = _build_llm()
 
-    # ── query builder ──────────────────────────────────────────────────────
+    # ── Agents ──────────────────────────────────────────────────────────────
 
-    def _gpt_image_query(self, title: str, summary: str) -> str:
-        """Use GPT to produce a precise, specific image-search query."""
-        if not OPENAI_API_KEY:
-            return ""
+    content_writer = Agent(
+        role="Senior News Journalist",
+        goal=(
+            "Write accurate, engaging, and well-structured news articles "
+            "for TheCloudMind — an AI-powered Indian news platform."
+        ),
+        backstory=(
+            "You are an experienced journalist with 10+ years covering AI and sports. "
+            "You always fetch the original source before writing, and you produce "
+            "professional articles with a clear headline, concise summary, and "
+            "detailed body that keeps readers engaged. "
+            "You never plagiarise — you rephrase and add analysis."
+        ),
+        tools=[ArticleFetcherTool()],
+        llm=llm,
+        verbose=False,
+        max_iter=3,
+        allow_delegation=False,
+    )
 
-        prompt = (
-            "You are an image researcher. Given a news headline, output a "
-            "3–6 word image search query that will find a visually relevant "
-            "photo on the internet.\n\n"
-            "Rules:\n"
-            "• Use the most specific person name, team name, or product name present.\n"
-            "• Cricket headlines → include the player's full name and/or team name.\n"
-            "• AI/tech headlines → include the company or model name.\n"
-            "• Never use generic words like 'news', 'latest', 'report', 'update'.\n"
-            "• Output ONLY the query — no quotes, no explanation.\n\n"
-            f"Headline: {title}\n"
-            f"Summary: {summary[:200]}"
-        )
+    image_researcher = Agent(
+        role="Visual Content Researcher",
+        goal=(
+            "Find the single most relevant, high-quality image for each news article. "
+            "Use specific entity names — never generic search terms."
+        ),
+        backstory=(
+            "You source images for a professional news platform. "
+            "For cricket stories you search by player or team name. "
+            "For AI/tech stories you search by company or product name. "
+            "You try DuckDuckGo first, then Wikipedia as a fallback."
+        ),
+        tools=[DDGImageSearchTool(), WikipediaImageTool()],
+        llm=llm,
+        verbose=False,
+        max_iter=3,
+        allow_delegation=False,
+    )
 
-        try:
-            resp = requests.post(
-                OPENAI_CHAT_COMPLETIONS_URL,
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": OPENAI_MODEL,
-                    "temperature": 0.1,
-                    "max_tokens": 30,
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-                timeout=10,
-            )
-            resp.raise_for_status()
-            query = resp.json()["choices"][0]["message"]["content"].strip().strip("\"'")
-            if query and len(query) > 3:
-                logger.info("[ImageFinderAgent] GPT query: '%s'", query)
-                return query
-        except Exception as exc:
-            logger.warning("[ImageFinderAgent] GPT query failed: %s", exc)
-        return ""
+    # ── Tasks ────────────────────────────────────────────────────────────────
 
-    def _heuristic_image_query(self, title: str, topic: str) -> str:
-        """
-        No-API fallback: groups consecutive capitalised tokens into named
-        entities and picks the two most specific ones.
-        """
-        tokens = re.findall(r"\S+", title)
-        entities: list[str] = []
-        current: list[str] = []
-        for tok in tokens:
-            clean = re.sub(r"[^\w]", "", tok)
-            if clean and clean[0].isupper():
-                current.append(clean)
-            else:
-                if current:
-                    entities.append(" ".join(current))
-                current = []
-        if current:
-            entities.append(" ".join(current))
+    write_task = Task(
+        description=(
+            f"Write a full news article about the following story.\n\n"
+            f"Headline: {item.title}\n"
+            f"Source URL: {item.url}\n"
+            f"Snippet: {item.body}\n"
+            f"Topic: {item.topic}\n\n"
+            "Instructions:\n"
+            "1. Fetch the full article from the source URL using the fetch_article tool.\n"
+            "2. Write a refined, professional title (can improve the headline).\n"
+            "3. Write a 2-3 sentence summary capturing the key news.\n"
+            "4. Write the full article content (400-600 words) in clear paragraphs.\n"
+            "   - Use <p> tags for each paragraph in the content field.\n"
+            "   - Add your own analysis where relevant.\n"
+            "   - Do not include any image tags, ads, or navigation text.\n"
+        ),
+        expected_output=(
+            "A JSON object with exactly three fields:\n"
+            '{\n'
+            '  "title": "The refined article title",\n'
+            '  "summary": "2-3 sentence summary of the story",\n'
+            '  "content": "<p>Paragraph one...</p><p>Paragraph two...</p>"\n'
+            '}'
+        ),
+        agent=content_writer,
+        output_pydantic=ArticleOutput,
+    )
 
-        entities.sort(key=lambda e: -len(e))
-        parts = [e for e in entities if len(e.replace(" ", "")) > 2][:2]
-        if topic and topic.lower() not in " ".join(parts).lower():
-            parts.append(topic)
-        return " ".join(parts[:3])
+    image_task = Task(
+        description=(
+            f"Find a relevant, high-quality image for this news article.\n\n"
+            f"Title: {item.title}\n"
+            f"Topic: {item.topic}\n\n"
+            "Instructions:\n"
+            "1. Extract the most specific entity names from the title "
+            "(player name, team, company, AI model).\n"
+            "2. Search DuckDuckGo Images using a 3-5 word specific query.\n"
+            "3. If DDG returns nothing useful, try Wikipedia with the main topic name.\n"
+            "4. Return only the direct image URL (starting with http). "
+            "Return 'none' if nothing is found.\n"
+        ),
+        expected_output=(
+            "A single direct image URL starting with 'http', or the string 'none'."
+        ),
+        agent=image_researcher,
+        context=[write_task],
+    )
 
-    def _build_query(self, title: str, summary: str, topic: str) -> str:
-        q = self._gpt_image_query(title, summary)
-        return q if q else self._heuristic_image_query(title, topic)
+    # ── Crew ─────────────────────────────────────────────────────────────────
 
-    # ── DDG image search ───────────────────────────────────────────────────
+    crew = Crew(
+        agents=[content_writer, image_researcher],
+        tasks=[write_task, image_task],
+        process=Process.sequential,
+        verbose=False,
+    )
 
-    def _ddg_image_search(self, query: str) -> Optional[str]:
-        """Return the URL of the first suitable image from DuckDuckGo."""
-        try:
-            from duckduckgo_search import DDGS
-        except ImportError:
-            return None
+    try:
+        crew.kickoff()
 
-        try:
-            with DDGS() as ddgs:
-                hits = list(
-                    ddgs.images(
-                        query,
-                        max_results=15,
-                        safesearch="off",
-                        type_image="photo",
-                    )
-                )
+        # Parse article output
+        article_out: ArticleOutput = write_task.output.pydantic
+        if not article_out:
+            # Fallback: try parsing raw JSON
+            import json
+            raw = write_task.output.raw or "{}"
+            data = json.loads(raw)
+            article_out = ArticleOutput(**data)
 
-            for hit in hits:
-                img_url = hit.get("image", "")
-                if not img_url or not img_url.startswith("http"):
-                    continue
-                # Skip tiny images (icons / thumbnails)
-                w = hit.get("width") or 0
-                h = hit.get("height") or 0
-                if (w and w < 400) or (h and h < 300):
-                    continue
-                logger.info(
-                    "[ImageFinderAgent] DDG image for '%s': %s", query, img_url
-                )
-                return img_url
+        # Parse image URL
+        image_url_raw = (image_task.output.raw or "").strip()
+        image_url = image_url_raw if image_url_raw.startswith("http") else None
 
-        except Exception as exc:
-            logger.warning(
-                "[ImageFinderAgent] DDG image search failed for '%s': %s", query, exc
-            )
-        return None
+        return article_out, image_url
 
-    # ── public API ─────────────────────────────────────────────────────────
-
-    def run(
-        self,
-        title: str,
-        summary: str,
-        topic: str,
-        tags: list[str],
-    ) -> tuple[bytes, str, str] | tuple[None, None, None]:
-        """
-        Return (image_bytes, filename, mimetype) or (None, None, None).
-        """
-        query = self._build_query(title, summary, topic)
-        logger.info("[ImageFinderAgent] searching: '%s'", query)
-
-        # 1. DuckDuckGo images
-        img_url = self._ddg_image_search(query)
-        if img_url:
-            data, fname, mime = _download_image(img_url)
-            if data:
-                return data, fname, mime
-
-        # 2. Wikipedia fallback
-        wiki_url = _fetch_wikipedia_image(title, tags)
-        if wiki_url:
-            data, fname, mime = _download_image(wiki_url)
-            if data:
-                return data, fname, mime
-
-        logger.warning("[ImageFinderAgent] no image found for '%s'", title)
-        return None, None, None
+    except Exception as exc:
+        logger.exception("[CrewAI] crew failed for '%s': %s", item.title, exc)
+        return None, None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Agent 3 – ContentWriterAgent
+# Phase 3 – Database persistence
 # ──────────────────────────────────────────────────────────────────────────────
 
-class ContentWriterAgent:
-    """
-    Fetches the full article page and uses OpenAI (or rule-based fallback) to
-    write a professional news analysis article.
-    """
+def _persist(
+    db: Session,
+    article: ArticleOutput,
+    source_url: str,
+    tags: list[str],
+    image_data: Optional[bytes],
+    image_filename: Optional[str],
+    image_mimetype: Optional[str],
+) -> bool:
+    if _source_exists(db, source_url):
+        logger.info("[Persist] skipping existing source: %s", source_url)
+        return False
 
-    def run(
-        self, item: DiscoveredNews
-    ) -> Optional[tuple[StoryDraft, str]]:
-        """
-        Returns (StoryDraft, resolved_source_url) or None on hard failure.
-        """
-        feed = FeedConfig(
-            topic=item.topic,
-            source_name=item.source or "News",
-            url="",
-            tags=item.tags,
-        )
+    base_slug = generate_slug(article.title)
+    if _story_exists(db, article.title, base_slug):
+        logger.info("[Persist] skipping existing title: %s", article.title)
+        return False
 
-        try:
-            article_html, resolved_url, _ = _fetch_article_assets(item.url)
-            source_url = resolved_url or item.url
-        except Exception as exc:
-            logger.warning(
-                "[ContentWriterAgent] fetch failed for %s: %s", item.url, exc
-            )
-            source_url = item.url
-            article_html = None
-
-        draft = _build_story_from_source(
-            feed=feed,
-            source_url=source_url,
-            source_title=item.title,
-            source_summary=item.body,
-            article_html=article_html,
-        )
-        return draft, source_url
+    news = News(
+        title=_clean_title(article.title),
+        summary=article.summary,
+        content=article.content,
+        tags=tags,
+        published=True,
+        slug=_generate_unique_slug(db, article.title),
+        image_data=image_data,
+        image_filename=image_filename,
+        image_mimetype=image_mimetype,
+    )
+    db.add(news)
+    db.commit()
+    db.refresh(news)
+    logger.info("[Persist] published: %s", article.title)
+    return True
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# AgentOrchestrator
+# Orchestrator
 # ──────────────────────────────────────────────────────────────────────────────
 
 class AgentOrchestrator:
     """
-    Coordinates all agents and persists results to the database.
-
-    Pipeline per article
-    --------------------
-    NewsDiscoveryAgent → ContentWriterAgent → ImageFinderAgent → DB save
+    Coordinates the full pipeline:
+      Discovery → CrewAI (write + image) → DB save
     """
 
-    def __init__(self) -> None:
-        self.discovery = NewsDiscoveryAgent()
-        self.writer = ContentWriterAgent()
-        self.image_finder = ImageFinderAgent()
-
-    def _persist(
-        self,
-        db: Session,
-        draft: StoryDraft,
-        source_url: str,
-        tags: list[str],
-        image_data: Optional[bytes],
-        image_filename: Optional[str],
-        image_mimetype: Optional[str],
-    ) -> bool:
-        if _source_exists(db, source_url):
-            logger.info("Skipping existing source: %s", source_url)
-            return False
-
-        base_slug = generate_slug(draft.title)
-        if _story_exists(db, draft.title, base_slug):
-            logger.info("Skipping existing title: %s", draft.title)
-            return False
-
-        news = News(
-            title=draft.title,
-            summary=draft.summary,
-            content=draft.content,
-            tags=tags,
-            published=True,
-            slug=_generate_unique_slug(db, draft.title),
-            image_data=image_data,
-            image_filename=image_filename,
-            image_mimetype=image_mimetype,
-        )
-        db.add(news)
-        db.commit()
-        db.refresh(news)
-        logger.info("[AgentOrchestrator] published: %s", draft.title)
-        return True
-
     def run(self, max_per_topic: int = 5) -> dict[str, int]:
+        if not OPENAI_API_KEY:
+            logger.error("[Orchestrator] OPENAI_API_KEY not set — aborting.")
+            return {"discovered": 0, "published": 0, "skipped": 0, "failed": 0}
+
         stats: dict[str, int] = {
             "discovered": 0,
             "published": 0,
             "skipped": 0,
             "failed": 0,
         }
+
+        # Phase 1: Discover news
+        items = NewsDiscoveryAgent().run(max_per_bucket=max_per_topic)
+        stats["discovered"] = len(items)
+        logger.info("[Orchestrator] discovered %d articles", len(items))
+
         db = SessionLocal()
         topic_counts: dict[str, int] = {}
 
         try:
-            items = self.discovery.run(max_per_bucket=max_per_topic)
-            stats["discovered"] = len(items)
-
             for item in items:
-                # Respect per-topic cap
                 if topic_counts.get(item.topic, 0) >= max_per_topic:
                     continue
 
-                logger.info(
-                    "[AgentOrchestrator] processing '%s' (%s)",
-                    item.title, item.topic,
-                )
+                # Skip if source already in DB (fast check before LLM spend)
+                if _source_exists(db, item.url):
+                    stats["skipped"] += 1
+                    continue
+
+                logger.info("[Orchestrator] processing '%s' (%s)", item.title, item.topic)
 
                 try:
-                    # Step 1 – write content
-                    result = self.writer.run(item)
-                    if result is None:
+                    # Phase 2: CrewAI crew → article + image URL
+                    article_out, image_url = _run_article_crew(item)
+
+                    if article_out is None:
                         stats["failed"] += 1
                         continue
-                    draft, source_url = result
 
-                    # Step 2 – find image
-                    img_data, img_fname, img_mime = self.image_finder.run(
-                        title=draft.title,
-                        summary=draft.summary,
-                        topic=item.topic,
-                        tags=item.tags,
-                    )
+                    # Download image bytes if we got a URL
+                    img_data, img_fname, img_mime = None, None, None
+                    if image_url:
+                        img_data, img_fname, img_mime = _download_image(image_url)
 
-                    # Step 3 – persist
-                    saved = self._persist(
-                        db, draft, source_url, item.tags,
+                    # Phase 3: Persist to DB
+                    saved = _persist(
+                        db, article_out, item.url, item.tags,
                         img_data, img_fname, img_mime,
                     )
 
@@ -463,20 +489,19 @@ class AgentOrchestrator:
                     else:
                         stats["skipped"] += 1
 
-                    time.sleep(2)  # Respect external services
+                    time.sleep(2)  # respect external services
 
                 except Exception as exc:
                     db.rollback()
                     stats["failed"] += 1
                     logger.exception(
-                        "[AgentOrchestrator] pipeline error for '%s': %s",
-                        item.title, exc,
+                        "[Orchestrator] pipeline error for '%s': %s", item.title, exc
                     )
 
         finally:
             db.close()
 
-        logger.info("[AgentOrchestrator] run complete: %s", stats)
+        logger.info("[Orchestrator] run complete: %s", stats)
         return stats
 
 
@@ -485,5 +510,5 @@ class AgentOrchestrator:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def run_agent_pipeline(max_per_topic: int = 5) -> dict[str, int]:
-    """Run the full agent pipeline and return stats."""
+    """Run the full CrewAI news pipeline and return stats."""
     return AgentOrchestrator().run(max_per_topic=max_per_topic)
