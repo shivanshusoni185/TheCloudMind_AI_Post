@@ -1,1 +1,1 @@
-"""Service layer helpers for backend automation and integrations."""
+"""Service layer helpers for backend integrations."""

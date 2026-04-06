@@ -13,3 +13,4 @@ apscheduler
 feedparser
 requests
 beautifulsoup4
+duckduckgo-search

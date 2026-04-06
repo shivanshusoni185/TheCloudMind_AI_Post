@@ -16,8 +16,8 @@ from requests import Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from ..database import SessionLocal
-from ..models import News, generate_slug
+from app.database import SessionLocal
+from app.models import News, generate_slug
 
 logger = logging.getLogger(__name__)
 
@@ -379,22 +379,105 @@ _STOP_WORDS = frozenset({
     "raises", "faces", "advocates", "poised", "amid", "amid", "vs",
 })
 
+# IPL team & common cricket abbreviations → full Wikipedia-searchable names
+_CRICKET_ABBREV_MAP = {
+    "MI": "Mumbai Indians",
+    "CSK": "Chennai Super Kings",
+    "RCB": "Royal Challengers Bengaluru",
+    "KKR": "Kolkata Knight Riders",
+    "SRH": "Sunrisers Hyderabad",
+    "DC": "Delhi Capitals",
+    "PBKS": "Punjab Kings",
+    "RR": "Rajasthan Royals",
+    "GT": "Gujarat Titans",
+    "LSG": "Lucknow Super Giants",
+    "IPL": "Indian Premier League",
+    "BCCI": "Board of Control for Cricket in India",
+    "ICC": "International Cricket Council",
+    "T20": "Twenty20 cricket",
+    "ODI": "One Day International cricket",
+}
+
+
+def _extract_named_entities(title: str) -> list[str]:
+    """
+    Extract named-entity phrases from a title by grouping consecutive
+    capitalised tokens (Title-case words AND all-caps abbreviations such as
+    MS, CSK, IPL, AI).  Returns longest phrases first.
+    """
+    tokens = re.findall(r"[^\s]+", title)
+    entities: list[str] = []
+    current: list[str] = []
+
+    for token in tokens:
+        clean = re.sub(r"[^\w]", "", token)
+        if not clean:
+            if current:
+                entities.append(" ".join(current))
+                current = []
+            continue
+        # Capitalised word (Title case) or all-caps abbreviation (≥1 char)
+        if clean[0].isupper():
+            current.append(clean)
+        else:
+            if current:
+                entities.append(" ".join(current))
+                current = []
+
+    if current:
+        entities.append(" ".join(current))
+
+    # Deduplicate, filter trivial single-char tokens
+    seen: set[str] = set()
+    unique: list[str] = []
+    for e in entities:
+        if e not in seen and len(e.replace(" ", "")) > 1:
+            seen.add(e)
+            unique.append(e)
+
+    # Longest (most specific) first
+    unique.sort(key=lambda x: -len(x))
+    return unique
+
 
 def _extract_search_keywords(title: str, tags: list[str]) -> str:
-    """Extract 4–5 meaningful keywords from article title + tags for image search."""
+    """
+    Build a concise, Wikipedia-friendly image-search query from the article
+    title and tags.  Named entities (player names, team names) are prioritised
+    over generic words, and known cricket abbreviations are expanded to their
+    full names so Wikipedia can find the right article.
+    """
+    is_cricket = any(t.lower() in ("cricket", "ipl", "sports") for t in (tags or []))
+    is_ai = any(t.lower() == "ai" for t in (tags or []))
+    topic_hint = "cricket" if is_cricket else ("artificial intelligence" if is_ai else "")
+
+    # Expand cricket abbreviations in the title before entity extraction
+    expanded_title = title
+    if is_cricket:
+        for abbrev, full_name in _CRICKET_ABBREV_MAP.items():
+            expanded_title = re.sub(rf"\b{re.escape(abbrev)}\b", full_name, expanded_title)
+
+    entities = _extract_named_entities(expanded_title)
+
+    # Filter out generic topic words that add no search value
+    generic = {"Cricket", "Indian", "India", "International", "Premier", "League"}
+    focused = [e for e in entities if e not in generic and e.lower() not in _STOP_WORDS]
+
+    # Pick up to 2 most specific entities (longest = most specific after sort)
+    parts = focused[:2]
+
+    if topic_hint and topic_hint.lower() not in " ".join(parts).lower():
+        parts.append(topic_hint)
+
+    if parts:
+        return " ".join(parts[:4])
+
+    # Fallback: plain word extraction (original behaviour)
     words = re.findall(r"[A-Za-z][a-z]{2,}", title)
     filtered = [w for w in words if w.lower() not in _STOP_WORDS][:5]
-    topic_hint = ""
-    for tag in (tags or []):
-        tag_l = tag.lower()
-        if tag_l in ("cricket", "ipl", "sports"):
-            topic_hint = "cricket"
-            break
-        if tag_l == "ai":
-            topic_hint = "artificial intelligence"
-            break
-    parts = filtered + ([topic_hint] if topic_hint and topic_hint not in " ".join(filtered).lower() else [])
-    return " ".join(parts[:6])
+    if topic_hint and topic_hint not in " ".join(filtered).lower():
+        filtered.append(topic_hint)
+    return " ".join(filtered[:6])
 
 
 def _fetch_wikipedia_image(title: str, tags: list[str]) -> Optional[str]:

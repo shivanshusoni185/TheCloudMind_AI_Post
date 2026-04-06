@@ -8,11 +8,12 @@ from ..models import News, generate_slug
 from ..schemas import NewsResponse, Token
 from ..auth import authenticate_admin, create_access_token, get_current_admin
 from .. import cache as news_cache
-from ..services.auto_publish import (
+from agents.auto_publish import (
     refresh_automated_article_content,
     refresh_automated_article_images,
     run_auto_publish,
 )
+from agents.agent_pipeline import run_agent_pipeline
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -279,3 +280,17 @@ async def refresh_automation_content(
     stats = refresh_automated_article_content()
     news_cache.invalidate()
     return {"message": "Automation content refreshed", "updated": stats}
+
+
+@router.post("/automation/agent-run")
+async def run_agent_automation(
+    current_admin: str = Depends(get_current_admin)
+):
+    """
+    Run the full agent pipeline:
+    DuckDuckGo news discovery → OpenAI content → DuckDuckGo image search → publish.
+    No feeds or source names required — agents figure everything out dynamically.
+    """
+    stats = run_agent_pipeline()
+    news_cache.invalidate()
+    return {"message": "Agent pipeline completed", "stats": stats}
