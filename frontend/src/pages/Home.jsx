@@ -1,140 +1,31 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { Search } from 'lucide-react'
+import { Search, Loader } from 'lucide-react'
 import NewsCard from '../components/NewsCard'
-import { newsApi, getLocalCache, setLocalCache } from '../lib/api'
-
-const CATEGORY_TABS = [
-  { label: 'All News', value: '' },
-  { label: 'AI', value: 'AI' },
-  { label: 'Cricket', value: 'Cricket' },
-  { label: 'IPL', value: 'IPL' },
-  { label: 'Sports', value: 'Sports' },
-]
-
-const getArticleTags = (article) => {
-  if (Array.isArray(article.tags)) return article.tags
-  if (typeof article.tags === 'string')
-    return article.tags.split(',').map((t) => t.trim()).filter(Boolean)
-  return []
-}
-
-const hasTag = (article, tag) =>
-  getArticleTags(article).some((v) => v.toLowerCase() === tag.toLowerCase())
-
-// ── Skeleton card ─────────────────────────────────────────────────
-function SkeletonCard({ compact = false }) {
-  if (compact) {
-    return (
-      <div className="flex gap-4 overflow-hidden rounded-[22px] border border-slate-200/70 bg-white/90 p-4">
-        <div className="h-20 w-20 shrink-0 animate-pulse rounded-[14px] bg-slate-200" />
-        <div className="flex-1 space-y-2 py-1">
-          <div className="h-3 w-1/3 animate-pulse rounded-full bg-slate-200" />
-          <div className="h-4 animate-pulse rounded-full bg-slate-200" />
-          <div className="h-4 w-3/4 animate-pulse rounded-full bg-slate-200" />
-        </div>
-      </div>
-    )
-  }
-  return (
-    <div className="overflow-hidden rounded-[28px] border border-slate-200/70 bg-white/90">
-      <div className="aspect-[16/10] animate-pulse bg-slate-200" />
-      <div className="space-y-3 p-5">
-        <div className="h-3 w-1/4 animate-pulse rounded-full bg-slate-200" />
-        <div className="h-5 animate-pulse rounded-full bg-slate-200" />
-        <div className="h-5 w-5/6 animate-pulse rounded-full bg-slate-200" />
-        <div className="h-4 w-4/6 animate-pulse rounded-full bg-slate-200" />
-      </div>
-    </div>
-  )
-}
-
-function SkeletonGrid() {
-  return (
-    <div className="space-y-14">
-      <section>
-        <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-          <SkeletonCard />
-          <div className="flex flex-col gap-4">
-            <SkeletonCard compact />
-            <SkeletonCard compact />
-            <SkeletonCard compact />
-          </div>
-        </div>
-      </section>
-      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
-      </section>
-    </div>
-  )
-}
+import { newsApi } from '../lib/api'
+import logo from '../assets/logo.jpg'
 
 function Home() {
   const [articles, setArticles] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
-  const [activeTag, setActiveTag] = useState('')
-  const fetchingRef = useRef(false)
-
-  const cacheKey = `news:${search}:${activeTag}`
-
-  const fetchNews = useCallback(async () => {
-    if (fetchingRef.current) return
-    fetchingRef.current = true
-    setError('')
-
-    // Show stale cache immediately — zero perceived latency on return visits
-    const cached = getLocalCache(cacheKey)
-    if (cached) {
-      setArticles(cached)
-      setLoading(false)
-    } else {
-      setLoading(true)
-    }
-
-    try {
-      const response = await newsApi.getAll(search, activeTag)
-      setArticles(response.data)
-      setLoading(false)
-      if (!search) {
-        setLocalCache(cacheKey, response.data)
-      }
-    } catch (err) {
-      console.error('Error fetching news:', err)
-      if (!cached) {
-        setLoading(false)
-        setError('Unable to load news right now. Please try again in a moment.')
-      }
-      // With stale data visible, silently skip showing an error
-    } finally {
-      fetchingRef.current = false
-    }
-  }, [activeTag, search, cacheKey])
 
   useEffect(() => {
     fetchNews()
-  }, [fetchNews])
+  }, [search])
 
-  const featuredArticle = articles[0]
-  const secondaryArticles = articles.slice(1, 4)
-  const restArticles = articles.slice(4)
-  const aiArticles = useMemo(
-    () => articles.filter((a) => hasTag(a, 'AI')),
-    [articles],
-  )
-  const cricketArticles = useMemo(
-    () => articles.filter((a) => hasTag(a, 'Cricket') || hasTag(a, 'IPL')),
-    [articles],
-  )
-
-  const activeLabel = useMemo(
-    () => CATEGORY_TABS.find((t) => t.value === activeTag)?.label ?? 'All News',
-    [activeTag],
-  )
+  const fetchNews = async () => {
+    setLoading(true)
+    try {
+      const response = await newsApi.getAll(search)
+      setArticles(response.data)
+    } catch (error) {
+      console.error('Error fetching news:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -144,212 +35,80 @@ function Home() {
   return (
     <>
       <Helmet>
-        <title>TheCloudMind.ai — AI, Cricket and IPL Newsroom</title>
-        <meta
-          name="description"
-          content="Direct-source AI and cricket/IPL coverage, rewritten into concise original analysis for fast reading."
-        />
-        <meta
-          name="keywords"
-          content="AI news, cricket news, IPL news, artificial intelligence, analysis, newsroom"
-        />
-        <meta property="og:title" content="TheCloudMind.ai — AI, Cricket and IPL Newsroom" />
-        <meta
-          property="og:description"
-          content="Original AI and cricket/IPL coverage built from direct sources and rewritten for clarity."
-        />
+        <title>TheCloudMind.ai - Latest AI News & Insights</title>
+        <meta name="description" content="Stay updated with the latest AI news, artificial intelligence developments, machine learning breakthroughs, and GenAI innovations. Your trusted source for AI insights and technology trends." />
+        <meta name="keywords" content="AI news, artificial intelligence, machine learning, GenAI, AI insights, AI developments, technology news, AI innovations" />
+        <meta property="og:title" content="TheCloudMind.ai - Latest AI News & Insights" />
+        <meta property="og:description" content="Your trusted source for AI news, developments, and innovations from around the world." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://cloudmindai.in/" />
         <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="TheCloudMind.ai - Latest AI News & Insights" />
+        <meta name="twitter:description" content="Your trusted source for AI news, developments, and innovations from around the world." />
         <link rel="canonical" href="https://cloudmindai.in/" />
       </Helmet>
-
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-
-        {/* Filter + Search bar */}
-        <section className="mb-8 md:mb-10">
-          <div className="glass-panel rounded-[24px] px-4 py-4 sm:px-6 sm:py-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Browse by topic
-                </p>
-                <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {CATEGORY_TABS.map((tab) => {
-                    const isActive = tab.value === activeTag
-                    return (
-                      <button
-                        key={tab.label}
-                        type="button"
-                        onClick={() => setActiveTag(tab.value)}
-                        className={`shrink-0 rounded-full border px-5 py-2 text-sm font-semibold transition ${
-                          isActive
-                            ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
-                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <form onSubmit={handleSearch} className="w-full lg:max-w-xl">
-                <div className="flex gap-2 sm:gap-3">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      value={searchInput}
-                      onChange={(e) => setSearchInput(e.target.value)}
-                      placeholder="Search stories…"
-                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                  >
-                    Search
-                  </button>
-                </div>
-              </form>
-            </div>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Hero */}
+        <div className="text-center mb-12">
+          <div className="flex justify-center mb-6">
+            <img
+              src={logo}
+              alt="TheCloudMind.ai"
+              className="h-32 w-32 md:h-40 md:w-40 rounded-full object-cover shadow-2xl ring-4 ring-blue-100 hover:ring-blue-200 transition-all"
+            />
           </div>
-        </section>
-
-        {/* Section heading */}
-        <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-            {activeLabel}
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-            {activeTag === 'AI'
-              ? 'AI coverage — analysis and developments'
-              : activeTag === 'Cricket'
-              ? 'Cricket coverage — latest news and analysis'
-              : activeTag === 'IPL'
-              ? 'IPL coverage — live updates and match analysis'
-              : activeTag === 'Sports'
-              ? 'Sports coverage — results and analysis'
-              : 'Original reporting built for fast reading'}
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 sm:mb-4 px-4">
+            <span className="bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 bg-clip-text text-transparent">
+              TheCloudMind.ai
+            </span>
           </h1>
-        </section>
+          <p className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-800 mb-2 px-4">
+            Latest AI News & Insights
+          </p>
+          <p className="text-sm sm:text-base md:text-lg text-gray-600 mb-6 sm:mb-8 px-4">
+            Your trusted source for AI developments and innovations
+          </p>
+          <form onSubmit={handleSearch} className="max-w-xl mx-auto px-4">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search news..."
+                className="w-full px-4 sm:px-5 py-2.5 sm:py-3 pl-10 sm:pl-12 pr-20 sm:pr-24 rounded-full border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition text-sm sm:text-base"
+              />
+              <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+              <button
+                type="submit"
+                className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 px-3 sm:px-6 py-1.5 sm:py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition text-sm sm:text-base"
+              >
+                Search
+              </button>
+            </div>
+          </form>
+        </div>
 
-        {/* Content */}
         {loading ? (
-          <SkeletonGrid />
-        ) : error ? (
-          <div className="rounded-[28px] border border-red-200 bg-white/90 p-10 text-center shadow-sm">
-            <p className="text-lg font-medium text-red-600">{error}</p>
-            <button
-              onClick={fetchNews}
-              className="mt-5 rounded-full bg-slate-950 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Retry
-            </button>
+          <div className="flex justify-center items-center py-20">
+            <Loader className="w-8 h-8 animate-spin text-blue-600" />
           </div>
         ) : articles.length === 0 ? (
-          <div className="rounded-[28px] border border-slate-200 bg-white/90 p-12 text-center shadow-sm">
-            <p className="text-xl text-slate-500">No articles found.</p>
+          <div className="text-center py-20">
+            <p className="text-gray-500 text-xl">No articles found</p>
+            {search && (
+              <button
+                onClick={() => { setSearch(''); setSearchInput('') }}
+                className="mt-4 text-blue-600 hover:underline"
+              >
+                Clear search
+              </button>
+            )}
           </div>
         ) : (
-          <div className="space-y-14">
-
-            {/* Hero */}
-            {featuredArticle && (
-              <section>
-                <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-                  <div className="overflow-hidden rounded-[32px] border border-slate-200/70 bg-white/90 shadow-[0_22px_65px_rgba(15,23,42,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_80px_rgba(15,23,42,0.12)]">
-                    <NewsCard article={featuredArticle} />
-                  </div>
-                  <div className="flex flex-col gap-4">
-                    {secondaryArticles.map((article) => (
-                      <NewsCard key={article.id} article={article} compact />
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* AI + Sports desk strips */}
-            {!activeTag && (
-              <section className="grid gap-8 xl:grid-cols-2">
-                {aiArticles.length > 0 && (
-                  <div className="rounded-[30px] border border-slate-200/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.05)] sm:p-6">
-                    <div className="mb-5 flex items-center justify-between gap-4">
-                      <div>
-                        <span className="inline-block rounded-full bg-teal-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-teal-700">
-                          AI Desk
-                        </span>
-                        <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-950">
-                          Artificial Intelligence
-                        </h2>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTag('AI')}
-                        className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-teal-300 hover:text-teal-700"
-                      >
-                        See all AI →
-                      </button>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {aiArticles.slice(0, 4).map((article) => (
-                        <NewsCard key={article.id} article={article} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {cricketArticles.length > 0 && (
-                  <div className="rounded-[30px] border border-slate-200/80 bg-white/80 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.05)] sm:p-6">
-                    <div className="mb-5 flex items-center justify-between gap-4">
-                      <div>
-                        <span className="inline-block rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-700">
-                          Cricket Desk
-                        </span>
-                        <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-950">
-                          Cricket & IPL
-                        </h2>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTag('Cricket')}
-                        className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
-                      >
-                        See all Cricket →
-                      </button>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {cricketArticles.slice(0, 4).map((article) => (
-                        <NewsCard key={article.id} article={article} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* More coverage */}
-            {restArticles.length > 0 && (
-              <section>
-                <div className="mb-6">
-                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    More coverage
-                  </p>
-                  <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-                    Fresh analysis across AI and cricket
-                  </h2>
-                </div>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {restArticles.map((article) => (
-                    <NewsCard key={article.id} article={article} />
-                  ))}
-                </div>
-              </section>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {articles.map((article) => (
+              <NewsCard key={article.id} article={article} />
+            ))}
           </div>
         )}
       </div>

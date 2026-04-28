@@ -1,7 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import Header from './components/Header'
 import Footer from './components/Footer'
-import ChatWidget from './components/ChatWidget'
 import Home from './pages/Home'
 import Article from './pages/Article'
 import LatestNews from './pages/LatestNews'
@@ -12,7 +11,7 @@ import AboutUs from './pages/AboutUs'
 
 function App() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
       <main className="flex-grow">
         <Routes>
@@ -26,7 +25,6 @@ function App() {
         </Routes>
       </main>
       <Footer />
-      <ChatWidget />
     </div>
   )
 }
