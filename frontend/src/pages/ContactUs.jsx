@@ -9,7 +9,7 @@ function ContactUs() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
+  const handleChange = e => setFormData({ ...formData, [e.target.name]: e.target.value })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -28,6 +28,19 @@ function ContactUs() {
     }
   }
 
+  const inputStyle = {
+    width: '100%', padding: '12px 16px',
+    border: '1px solid #e2e8f0', borderRadius: 14,
+    fontFamily: 'var(--font-sans)', fontSize: 14,
+    color: 'var(--fg2)', background: '#fff', outline: 'none',
+    boxSizing: 'border-box',
+  }
+
+  const labelStyle = {
+    display: 'block', fontSize: 13, fontWeight: 600,
+    color: 'var(--fg3)', marginBottom: 6,
+  }
+
   return (
     <>
       <Helmet>
@@ -35,99 +48,93 @@ function ContactUs() {
         <meta name="description" content="Have questions about AI news or want to collaborate? Contact TheCloudMind.ai team." />
         <meta name="keywords" content="contact TheCloudMind.ai, AI news contact, get in touch, feedback" />
         <meta property="og:title" content="Contact Us - TheCloudMind.ai" />
-        <meta property="og:description" content="Get in touch with TheCloudMind.ai team. We're here to answer your questions." />
+        <meta property="og:description" content="Get in touch with TheCloudMind.ai team." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://cloudmindai.in/contact" />
         <meta name="twitter:card" content="summary_large_image" />
         <link rel="canonical" href="https://cloudmindai.in/contact" />
       </Helmet>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12">
-        <div className="max-w-7xl mx-auto px-4">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold mb-4">
-              <span className="bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Contact Us
-              </span>
-            </h1>
-            <p className="text-xl text-gray-600">
-              Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
-            </p>
+
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '48px 24px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>GET IN TOUCH</div>
+          <h1 style={{ margin: 0, fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fg1)' }}>
+            Contact Us
+          </h1>
+          <p style={{ margin: '14px auto 0', maxWidth: 480, fontFamily: 'var(--font-serif)', fontSize: 17, lineHeight: 1.7, color: 'var(--fg4)' }}>
+            Have questions? We would love to hear from you. Send us a message and we will respond as soon as possible.
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }} className="contact-grid">
+          {/* Info */}
+          <div style={{ background: 'var(--bg5)', borderRadius: 28, padding: 28, color: '#fff' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 700, color: '#fff' }}>Why Contact Us?</h3>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {['Get expert insights on AI news', 'Suggest topics for coverage', 'Report issues or feedback', 'Collaboration inquiries'].map(item => (
+                <li key={item} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 14, fontSize: 14, color: '#94a3b8' }}>
+                  <CheckCircle size={16} style={{ color: 'var(--teal-600)', flexShrink: 0, marginTop: 1 }} />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,.1)' }}>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>EMAIL</div>
+              <a href="mailto:contact@cloudmindai.in" style={{ color: '#cbd5e1', fontSize: 14, textDecoration: 'none' }}>
+                contact@cloudmindai.in
+              </a>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Info */}
-            <div className="lg:col-span-1">
-              <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl shadow-lg p-6 text-white">
-                <h3 className="text-xl font-bold mb-3">Why Contact Us?</h3>
-                <ul className="space-y-2 text-sm">
-                  {['Get expert insights on AI news', 'Suggest topics for coverage', 'Report issues or feedback'].map((item) => (
-                    <li key={item} className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
+          {/* Form */}
+          <div style={{ background: 'var(--cm-card)', border: '1px solid #e2e8f0', borderRadius: 28, padding: 32, boxShadow: 'var(--shadow-card)' }}>
+            <h2 style={{ margin: '0 0 24px', fontSize: 22, fontWeight: 700, color: 'var(--fg1)' }}>Send us a Message</h2>
+
+            {success && (
+              <div style={{ marginBottom: 20, padding: '12px 16px', background: 'var(--teal-50)', border: '1px solid #99f6e4', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--teal-ink)', fontSize: 14 }}>
+                <CheckCircle size={18} /> Thank you! We will get back to you soon.
               </div>
-            </div>
-
-            {/* Form */}
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-2xl shadow-lg p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Send us a Message</h2>
-
-                {success && (
-                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 text-green-800">
-                    <CheckCircle className="w-5 h-5" />
-                    <p>Thank you for your message! We'll get back to you soon.</p>
-                  </div>
-                )}
-                {error && (
-                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 text-red-800">
-                    <AlertCircle className="w-5 h-5" />
-                    <p>{error}</p>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Your Name *</label>
-                      <input type="text" name="name" value={formData.name} onChange={handleChange} required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
-                        placeholder="John Doe" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Your Email *</label>
-                      <input type="email" name="email" value={formData.email} onChange={handleChange} required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
-                        placeholder="john@example.com" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
-                    <input type="text" name="subject" value={formData.subject} onChange={handleChange} required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
-                      placeholder="How can we help you?" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Message *</label>
-                    <textarea name="message" value={formData.message} onChange={handleChange} required rows="6"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition resize-none"
-                      placeholder="Tell us more about your inquiry..." />
-                  </div>
-                  <button type="submit" disabled={loading}
-                    className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Sending...</>
-                    ) : (
-                      <><Send className="w-5 h-5" />Send Message</>
-                    )}
-                  </button>
-                </form>
+            )}
+            {error && (
+              <div style={{ marginBottom: 20, padding: '12px 16px', background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--danger)', fontSize: 14 }}>
+                <AlertCircle size={18} /> {error}
               </div>
-            </div>
+            )}
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <label style={labelStyle}>Your Name *</label>
+                  <input type="text" name="name" value={formData.name} onChange={handleChange} required style={inputStyle} placeholder="John Doe" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Your Email *</label>
+                  <input type="email" name="email" value={formData.email} onChange={handleChange} required style={inputStyle} placeholder="john@example.com" />
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Subject *</label>
+                <input type="text" name="subject" value={formData.subject} onChange={handleChange} required style={inputStyle} placeholder="How can we help you?" />
+              </div>
+              <div>
+                <label style={labelStyle}>Message *</label>
+                <textarea name="message" value={formData.message} onChange={handleChange} required rows="5"
+                  style={{ ...inputStyle, resize: 'none' }}
+                  placeholder="Tell us more about your inquiry..." />
+              </div>
+              <button type="submit" disabled={loading} style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                padding: '14px 24px', background: 'var(--bg5)', color: '#fff',
+                border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                opacity: loading ? 0.6 : 1,
+              }}>
+                {loading
+                  ? <><div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />Sending...</>
+                  : <><Send size={16} />Send Message</>
+                }
+              </button>
+            </form>
           </div>
         </div>
       </div>

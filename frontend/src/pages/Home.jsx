@@ -1,19 +1,83 @@
 import { useState, useEffect } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { Search, Loader } from 'lucide-react'
+import { Loader } from 'lucide-react'
 import NewsCard from '../components/NewsCard'
 import { newsApi } from '../lib/api'
-import logo from '../assets/logo.jpg'
+
+function FilterBar({ active, onChange, search, setSearch, onSubmit }) {
+  const tabs = [
+    { label: 'All News', value: '' },
+    { label: 'AI', value: 'AI' },
+  ]
+  return (
+    <section style={{ marginBottom: 40 }}>
+      <div className="glass-panel" style={{ padding: '18px 22px', borderRadius: 20 }}>
+        <div className="filter-bar-inner">
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>BROWSE BY TOPIC</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {tabs.map(t => (
+                <button key={t.value} onClick={() => onChange(t.value)} style={{
+                  background: active === t.value ? 'var(--bg5)' : '#fff',
+                  color: active === t.value ? '#fff' : 'var(--fg4)',
+                  border: '1px solid ' + (active === t.value ? 'var(--bg5)' : '#e2e8f0'),
+                  padding: '8px 18px', borderRadius: 9999,
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  transition: 'background .15s, color .15s',
+                }}>{t.label}</button>
+              ))}
+            </div>
+          </div>
+          <form onSubmit={e => { e.preventDefault(); onSubmit() }} style={{ display: 'flex', gap: 8 }}>
+            <div style={{ position: 'relative' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }}>
+                <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search stories..."
+                style={{
+                  border: '1px solid #e2e8f0', background: '#fff', borderRadius: 14,
+                  padding: '10px 14px 10px 38px', fontFamily: 'inherit', fontSize: 13,
+                  outline: 'none', width: 200,
+                }}
+              />
+            </div>
+            <button type="submit" style={{
+              padding: '10px 20px', background: 'var(--bg5)', color: '#fff',
+              border: 'none', borderRadius: 14, fontSize: 14, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>Search</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function HeroRow({ articles }) {
+  const [featured, ...rest] = articles
+  if (!featured) return null
+  return (
+    <section className="hero-row">
+      <NewsCard article={featured} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {rest.slice(0, 3).map(a => <NewsCard key={a.id} article={a} compact />)}
+      </div>
+    </section>
+  )
+}
 
 function Home() {
   const [articles, setArticles] = useState([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [active, setActive] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    fetchNews()
-  }, [search])
+  useEffect(() => { fetchNews() }, [search])
 
   const fetchNews = async () => {
     setLoading(true)
@@ -27,91 +91,79 @@ function Home() {
     }
   }
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-    setSearch(searchInput)
-  }
+  const filtered = articles.filter(a => {
+    if (!active) return true
+    const tags = Array.isArray(a.tags) ? a.tags : (a.tags ? a.tags.split(',').map(t => t.trim()) : [])
+    return tags.some(t => t.toLowerCase() === active.toLowerCase())
+  })
+
+  const heading = active === 'AI'
+    ? 'AI coverage — analysis and developments'
+    : 'Original reporting built for fast reading'
 
   return (
     <>
       <Helmet>
         <title>TheCloudMind.ai - Latest AI News & Insights</title>
-        <meta name="description" content="Stay updated with the latest AI news, artificial intelligence developments, machine learning breakthroughs, and GenAI innovations. Your trusted source for AI insights and technology trends." />
-        <meta name="keywords" content="AI news, artificial intelligence, machine learning, GenAI, AI insights, AI developments, technology news, AI innovations" />
+        <meta name="description" content="Stay updated with the latest AI news, artificial intelligence developments, machine learning breakthroughs, and GenAI innovations." />
+        <meta name="keywords" content="AI news, artificial intelligence, machine learning, GenAI, AI insights" />
         <meta property="og:title" content="TheCloudMind.ai - Latest AI News & Insights" />
         <meta property="og:description" content="Your trusted source for AI news, developments, and innovations from around the world." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://cloudmindai.in/" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="TheCloudMind.ai - Latest AI News & Insights" />
-        <meta name="twitter:description" content="Your trusted source for AI news, developments, and innovations from around the world." />
         <link rel="canonical" href="https://cloudmindai.in/" />
       </Helmet>
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Hero */}
-        <div className="text-center mb-12">
-          <div className="flex justify-center mb-6">
-            <img
-              src={logo}
-              alt="TheCloudMind.ai"
-              className="h-32 w-32 md:h-40 md:w-40 rounded-full object-cover shadow-2xl ring-4 ring-blue-100 hover:ring-blue-200 transition-all"
-            />
-          </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 sm:mb-4 px-4">
-            <span className="bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 bg-clip-text text-transparent">
-              TheCloudMind.ai
-            </span>
+
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px 16px' }}>
+        <FilterBar
+          active={active}
+          onChange={setActive}
+          search={searchInput}
+          setSearch={setSearchInput}
+          onSubmit={() => setSearch(searchInput)}
+        />
+        <section style={{ marginBottom: 32 }}>
+          <div className="eyebrow">{active ? active.toUpperCase() : 'ALL NEWS'}</div>
+          <h1 style={{ marginTop: 6, fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 700, letterSpacing: '-.01em', color: 'var(--fg1)' }}>
+            {heading}
           </h1>
-          <p className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-800 mb-2 px-4">
-            Latest AI News & Insights
-          </p>
-          <p className="text-sm sm:text-base md:text-lg text-gray-600 mb-6 sm:mb-8 px-4">
-            Your trusted source for AI developments and innovations
-          </p>
-          <form onSubmit={handleSearch} className="max-w-xl mx-auto px-4">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Search news..."
-                className="w-full px-4 sm:px-5 py-2.5 sm:py-3 pl-10 sm:pl-12 pr-20 sm:pr-24 rounded-full border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition text-sm sm:text-base"
-              />
-              <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-              <button
-                type="submit"
-                className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 px-3 sm:px-6 py-1.5 sm:py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition text-sm sm:text-base"
-              >
-                Search
-              </button>
-            </div>
-          </form>
-        </div>
+        </section>
 
         {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader className="w-8 h-8 animate-spin text-blue-600" />
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '80px 0' }}>
+            <Loader size={32} className="animate-spin" style={{ color: 'var(--cm-accent)' }} />
           </div>
-        ) : articles.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-500 text-xl">No articles found</p>
-            {search && (
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <p style={{ color: 'var(--fg4)', fontSize: 18 }}>No articles found</p>
+            {(search || active) && (
               <button
-                onClick={() => { setSearch(''); setSearchInput('') }}
-                className="mt-4 text-blue-600 hover:underline"
+                onClick={() => { setSearch(''); setSearchInput(''); setActive('') }}
+                style={{ marginTop: 16, color: 'var(--cm-accent)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', textDecoration: 'underline' }}
               >
-                Clear search
+                Clear filters
               </button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {articles.map((article) => (
-              <NewsCard key={article.id} article={article} />
-            ))}
-          </div>
+          <HeroRow articles={filtered} />
         )}
       </div>
+
+      {!loading && filtered.length > 4 && (
+        <div style={{ background: 'var(--cm-section)', borderTop: '1px solid var(--cm-border)', borderBottom: '1px solid var(--cm-border)', padding: '56px 0' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>MORE COVERAGE</div>
+            <h2 style={{ margin: '0 0 24px', fontSize: 24, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--fg1)' }}>
+              Fresh analysis across AI and technology
+            </h2>
+            <div className="coverage-grid">
+              {filtered.slice(4).map(a => <NewsCard key={a.id} article={a} />)}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

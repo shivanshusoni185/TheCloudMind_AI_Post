@@ -11,7 +11,7 @@ import AboutUs from './pages/AboutUs'
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div style={{ minHeight: '100vh', background: 'var(--cm-bg)', display: 'flex', flexDirection: 'column' }}>
       <Header />
       <main className="flex-grow">
         <Routes>
