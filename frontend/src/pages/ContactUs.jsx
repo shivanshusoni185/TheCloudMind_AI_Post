@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { Send, CheckCircle, AlertCircle } from 'lucide-react'
-import axios from 'axios'
+import api from '../lib/api'
 
 function ContactUs() {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' })
@@ -17,7 +17,7 @@ function ContactUs() {
     setError('')
     setSuccess(false)
     try {
-      await axios.post('/api/contact/', formData)
+      await api.post('/contact/', formData)
       setSuccess(true)
       setFormData({ name: '', email: '', subject: '', message: '' })
       setTimeout(() => setSuccess(false), 5000)
