@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Dev: Vite proxies /api → http://localhost:8000
 // Prod: set VITE_API_URL=https://your-backend.onrender.com in Vercel
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 // 15 s timeout — enough for a warm backend; prevents hanging forever on
 // cold-start or transient network issues.
@@ -99,7 +99,7 @@ export const adminApi = {
 
 export const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  const base = import.meta.env.VITE_API_URL ?? '/api';
+  const base = import.meta.env.VITE_API_URL || '/api';
   return base + (imagePath.startsWith('/') ? imagePath : '/' + imagePath);
 };
 

@@ -34,14 +34,21 @@ allowed_origins = [
     o.strip()
     for o in os.getenv(
         "ALLOWED_ORIGINS",
-        "https://cloudmindai.in,https://www.cloudmindai.in,https://thecloudmind-web.fly.dev",
+        "https://cloudmindai.in,https://www.cloudmindai.in,https://thecloudmind-web.fly.dev,https://the-cloud-mind-ai-post.vercel.app",
     ).split(",")
     if o.strip()
 ]
 
+# Also allow all Vercel preview deployment URLs for this project
+allowed_origin_regex = os.getenv(
+    "ALLOWED_ORIGIN_REGEX",
+    r"https://the-cloud-mind-ai-post-[a-z0-9]+\.vercel\.app",
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=allowed_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
