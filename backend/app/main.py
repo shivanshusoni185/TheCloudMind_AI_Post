@@ -34,7 +34,7 @@ allowed_origins = [
     o.strip()
     for o in os.getenv(
         "ALLOWED_ORIGINS",
-        "https://cloudmindai.in,https://www.cloudmindai.in,https://thecloudmind-web.fly.dev,https://the-cloud-mind-ai-post.vercel.app",
+        "https://cloudmindai.in,https://www.cloudmindai.in,https://the-cloud-mind-ai-post.vercel.app",
     ).split(",")
     if o.strip()
 ]
@@ -67,7 +67,7 @@ async def root():
 @app.get("/health")
 async def health():
     """
-    Lightweight health probe for Fly.io.
+    Lightweight health probe for the hosting platform (Render).
 
     Uses db_ping() which opens its own connection outside the shared
     session pool — pool exhaustion during request bursts won't cause

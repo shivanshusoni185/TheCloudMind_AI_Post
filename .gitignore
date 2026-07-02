@@ -61,3 +61,5 @@ replit.md
 
 # Replit
 .replit
+.vercel
+.env*
