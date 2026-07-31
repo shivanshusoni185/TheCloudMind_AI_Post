@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Dev: Vite proxies /api → http://localhost:8000
-// Prod: set VITE_API_URL=https://your-backend.onrender.com in Vercel
+// Prod: Nginx proxies /api → backend:8000 (no env var needed)
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 // 15 s timeout — enough for a warm backend; prevents hanging forever on

@@ -34,21 +34,14 @@ allowed_origins = [
     o.strip()
     for o in os.getenv(
         "ALLOWED_ORIGINS",
-        "https://cloudmindai.in,https://www.cloudmindai.in,https://the-cloud-mind-ai-post.vercel.app",
+        "https://cloudmindai.in,https://www.cloudmindai.in",
     ).split(",")
     if o.strip()
 ]
 
-# Also allow all Vercel preview deployment URLs for this project
-allowed_origin_regex = os.getenv(
-    "ALLOWED_ORIGIN_REGEX",
-    r"https://the-cloud-mind-ai-post-[a-z0-9]+\.vercel\.app",
-)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=allowed_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -66,13 +59,6 @@ async def root():
 
 @app.get("/health")
 async def health():
-    """
-    Lightweight health probe for the hosting platform (Render).
-
-    Uses db_ping() which opens its own connection outside the shared
-    session pool — pool exhaustion during request bursts won't cause
-    the health check to fail and trigger unnecessary machine restarts.
-    """
     import asyncio
     ok = await asyncio.get_event_loop().run_in_executor(None, db_ping)
     return {"status": "running", "database": "connected" if ok else "unreachable"}

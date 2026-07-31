@@ -43,6 +43,13 @@ backend/uploads/images/*
 
 # Build outputs
 client/dist/
+frontend/dist/
+
+# Logs
+*.log
+
+# Next.js artifacts (wrong framework — this is a Vite project)
+frontend/src/.next/
 
 # Lock files (Python only)
 uv.lock
@@ -62,4 +69,8 @@ replit.md
 # Replit
 .replit
 .vercel
-.env*
+.env
+.env.local
+.env.production
+.env.development
+.env.*.local
