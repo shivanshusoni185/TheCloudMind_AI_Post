@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async'
 import { ArrowLeft, MapPin, Briefcase, Wifi, ExternalLink, Loader } from 'lucide-react'
 import { jobsApi } from '../lib/api'
 import { renderArticleContent } from '../lib/content'
-import { jobUrl as buildJobUrl, jobPath } from '../lib/urls'
+import { jobUrl as buildJobUrl, jobPath, safeExternalUrl, jsonLdSafe } from '../lib/urls'
 import ShareBar from '../components/ShareBar'
 
 function JobDetail() {
@@ -58,12 +58,17 @@ function JobDetail() {
   const dateStr = posted ? new Date(posted).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
   const jobUrl = buildJobUrl(job)
 
-  // Google Jobs (JobPosting) structured data for SEO.
+  const applyUrl = safeExternalUrl(job.apply_url)
+
+  // Google Jobs (JobPosting) structured data for SEO. Description is stripped
+  // to plain text (Google prefers it, and it removes the injection surface).
+  const plainDescription = (job.description || `${job.title} at ${job.company}`)
+    .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'JobPosting',
     title: job.title,
-    description: job.description || `${job.title} at ${job.company}`,
+    description: plainDescription,
     datePosted: posted,
     employmentType: job.job_type || undefined,
     hiringOrganization: {
@@ -81,7 +86,7 @@ function JobDetail() {
   }
 
   const ApplyButton = ({ block }) => (
-    <a href={job.apply_url} target="_blank" rel="noopener noreferrer"
+    <a href={applyUrl} target="_blank" rel="noopener noreferrer"
       style={{
         display: 'inline-flex', gap: 8, alignItems: 'center', justifyContent: 'center',
         padding: '13px 26px', background: 'var(--bg5)', color: '#fff',
@@ -98,7 +103,7 @@ function JobDetail() {
         <title>{job.title} at {job.company} — TheCloudMind.ai Jobs</title>
         <meta name="description" content={`${job.title} at ${job.company}${job.location ? ' · ' + job.location : ''}. Apply now via TheCloudMind.ai jobs board.`} />
         <link rel="canonical" href={jobUrl} />
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+        <script type="application/ld+json">{jsonLdSafe(jsonLd)}</script>
       </Helmet>
 
       <div style={{ maxWidth: 820, margin: '0 auto', padding: '32px 24px' }}>

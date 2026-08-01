@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Loader, Trash2, Plus, X, Download, Star, ArrowLeft, ExternalLink } from 'lucide-react'
 import { adminApi } from '../lib/api'
+import { safeExternalUrl } from '../lib/urls'
 
 const EMPTY = {
   title: '', company: '', location: '', remote: true,
@@ -139,7 +140,7 @@ function AdminJobs() {
                   <td className="px-5 py-4 text-gray-500 text-sm">{job.category || '—'}</td>
                   <td className="px-5 py-4 text-gray-500 text-sm">{job.source || 'manual'}</td>
                   <td className="px-5 py-4 text-right whitespace-nowrap">
-                    <a href={job.apply_url} target="_blank" rel="noopener noreferrer" className="inline-block p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Open apply link">
+                    <a href={safeExternalUrl(job.apply_url)} target="_blank" rel="noopener noreferrer" className="inline-block p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Open apply link">
                       <ExternalLink className="w-5 h-5" />
                     </a>
                     <button onClick={() => togglePin(job)} className={`p-2 rounded-lg ${job.pinned ? 'text-amber-500 hover:bg-amber-50' : 'text-gray-400 hover:bg-gray-100'}`} title="Toggle featured">

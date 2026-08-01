@@ -28,3 +28,17 @@ export function jobPath(job) {
 
 export const articleUrl = (article) => ORIGIN + articlePath(article)
 export const jobUrl = (job) => ORIGIN + jobPath(job)
+
+// Only allow http(s) external links; blocks javascript:/data: schemes in
+// admin- or feed-supplied apply URLs from becoming an XSS/click vector.
+export function safeExternalUrl(url) {
+  if (typeof url !== 'string') return '#'
+  return /^https?:\/\//i.test(url.trim()) ? url : '#'
+}
+
+// Serialize an object for embedding in a <script type="application/ld+json">.
+// Escapes '<' so a value containing "</script>" cannot break out of the tag.
+export function jsonLdSafe(obj) {
+  return JSON.stringify(obj).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
+}
+
