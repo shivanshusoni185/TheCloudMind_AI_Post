@@ -263,9 +263,43 @@ body {
 .article-body a {
   color: var(--cm-accent);
   text-decoration: underline;
+  word-break: break-word;
 }
 .article-body img {
   max-width: 100%;
   border-radius: var(--radius-md);
   margin: 1em 0;
+}
+.article-body ul, .article-body ol {
+  font-family: var(--font-serif);
+  color: var(--fg3);
+  line-height: 1.8;
+  padding-left: 1.4em;
+  margin: 0 0 1.2em;
+}
+.article-body li {
+  margin: 0 0 0.4em;
+}
+.article-body strong {
+  color: var(--fg1);
+  font-weight: 700;
+}
+.article-body blockquote {
+  margin: 1.2em 0;
+  padding: 4px 0 4px 18px;
+  border-left: 3px solid var(--cm-accent);
+  color: var(--fg4);
+  font-style: italic;
+}
+.article-body hr {
+  border: none;
+  border-top: 1px solid var(--cm-border);
+  margin: 1.8em 0 1.2em;
+}
+/* Source-note trailer (rendered from the "*Source note: …*" markdown line) */
+.article-body hr + p {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--fg5);
+  margin-bottom: 0.4em;
 }

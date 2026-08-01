@@ -12,7 +12,9 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.2",
     "axios": "^1.14.0",
+    "dompurify": "^3.4.12",
     "lucide-react": "^0.561.0",
+    "marked": "^18.0.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-helmet-async": "^3.0.0",

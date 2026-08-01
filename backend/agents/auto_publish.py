@@ -648,13 +648,17 @@ def _generate_unique_slug(db: Session, title: str, current_id: Optional[int] = N
 
 
 def _format_content(sections: list[tuple[str, str]], source_name: str, source_url: str) -> str:
+    # Emitted as Markdown; the frontend renders it to HTML (see lib/content.js).
+    # NOTE: the literal "Original source: <url>" line must be preserved verbatim —
+    # dedup (_source_exists) and refresh (_extract_source_url_from_content) match it.
     blocks = []
     for heading, body in sections:
         cleaned = _clean_text(body)
         if not cleaned:
             continue
-        blocks.append(f"## {heading}\n{cleaned}")
-    blocks.append(f"Source note: Adapted from reporting by {source_name}.")
+        blocks.append(f"## {heading}\n\n{cleaned}")
+    blocks.append("---")
+    blocks.append(f"*Source note: Adapted from reporting by {source_name}.*")
     blocks.append(f"Original source: {source_url}")
     return "\n\n".join(blocks)
 
