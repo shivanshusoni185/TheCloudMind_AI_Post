@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MapPin, Briefcase, Wifi } from 'lucide-react'
+import { jobPath } from '../lib/urls'
 
 // Warm-palette initial avatar for companies without a usable logo.
 function CompanyMark({ company }) {
@@ -43,7 +44,7 @@ function JobCard({ job }) {
 
   return (
     <Link
-      to={`/jobs/${job.slug || job.id}`}
+      to={jobPath(job)}
       style={{
         display: 'block', background: 'var(--cm-card)',
         border: '1px solid rgba(226,232,240,.7)', borderRadius: 22,

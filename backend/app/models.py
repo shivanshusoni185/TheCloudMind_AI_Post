@@ -30,7 +30,11 @@ def generate_slug(title: str, db_session: Optional[Session] = None, model_class=
     slug = unicodedata.normalize('NFKD', slug)
     slug = slug.encode('ascii', 'ignore').decode('ascii')
 
-    # Replace spaces and special characters with hyphens
+    # Drop apostrophes/quotes so possessives collapse cleanly
+    # ("australia's role" -> "australias-role", not "australia-s-role").
+    slug = re.sub(r"['\"`]", '', slug)
+
+    # Replace remaining spaces and special characters with hyphens
     slug = re.sub(r'[^a-z0-9]+', '-', slug)
 
     # Remove leading/trailing hyphens

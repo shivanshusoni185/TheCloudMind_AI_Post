@@ -1,18 +1,30 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { ArrowLeft, Calendar, Tag, Loader } from 'lucide-react'
 import { newsApi, getImageUrl } from '../lib/api'
 import { renderArticleContent } from '../lib/content'
+import { articleUrl as buildArticleUrl, articlePath } from '../lib/urls'
 import ShareBar from '../components/ShareBar'
 
 function Article() {
   const { slug } = useParams()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [article, setArticle] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => { fetchArticle() }, [slug])
+
+  // Redirect legacy (/article/:slug) and any non-canonical dated path to the
+  // canonical /news/YYYY/MM/:slug URL derived from the article's publish date.
+  useEffect(() => {
+    if (article) {
+      const canonical = articlePath(article)
+      if (pathname !== canonical) navigate(canonical, { replace: true })
+    }
+  }, [article, pathname, navigate])
 
   const fetchArticle = async () => {
     setLoading(true)
@@ -54,7 +66,7 @@ function Article() {
     ? article.tags.split(',').map(t => t.trim())
     : []
   const date = new Date(article.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-  const articleUrl = `https://cloudmindai.in/article/${article.slug}`
+  const articleUrl = buildArticleUrl(article)
   const description = article.summary || article.content.substring(0, 160) + '...'
 
   return (

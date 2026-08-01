@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { getImageUrl } from '../lib/api'
+import { articlePath } from '../lib/urls'
 
 // Warm-palette placeholder for cards without a real photo
 function SeedImage({ seed = 'tcm', aspect = '16/10', tag, showArrow = true }) {
@@ -65,7 +66,7 @@ function NewsCard({ article, compact }) {
   if (compact) {
     return (
       <Link
-        to={`/article/${article.slug}`}
+        to={articlePath(article)}
         style={{
           display: 'flex', gap: 14, padding: 14,
           background: 'var(--cm-card)', border: '1px solid rgba(226,232,240,.7)',

@@ -20,9 +20,15 @@ function App() {
       <main className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />
+          {/* Canonical dated article path */}
+          <Route path="/news/:year/:month/:slug" element={<Article />} />
+          {/* Legacy — redirects to the dated path */}
           <Route path="/article/:slug" element={<Article />} />
           <Route path="/latest-news" element={<LatestNews />} />
           <Route path="/jobs" element={<Jobs />} />
+          {/* Canonical dated job path */}
+          <Route path="/jobs/:year/:month/:slug" element={<JobDetail />} />
+          {/* Legacy — redirects to the dated path */}
           <Route path="/jobs/:slug" element={<JobDetail />} />
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/about" element={<AboutUs />} />

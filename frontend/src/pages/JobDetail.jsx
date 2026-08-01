@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { ArrowLeft, MapPin, Briefcase, Wifi, ExternalLink, Loader } from 'lucide-react'
 import { jobsApi } from '../lib/api'
 import { renderArticleContent } from '../lib/content'
+import { jobUrl as buildJobUrl, jobPath } from '../lib/urls'
 import ShareBar from '../components/ShareBar'
 
 function JobDetail() {
   const { slug } = useParams()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [job, setJob] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -19,6 +22,15 @@ function JobDetail() {
       .catch(() => setError('Job not found'))
       .finally(() => setLoading(false))
   }, [slug])
+
+  // Redirect legacy (/jobs/:slug) and non-canonical dated paths to the
+  // canonical /jobs/YYYY/MM/:slug URL.
+  useEffect(() => {
+    if (job) {
+      const canonical = jobPath(job)
+      if (pathname !== canonical) navigate(canonical, { replace: true })
+    }
+  }, [job, pathname, navigate])
 
   if (loading) {
     return (
@@ -44,7 +56,7 @@ function JobDetail() {
   const tags = Array.isArray(job.tags) ? job.tags : []
   const posted = job.posted_at || job.created_at
   const dateStr = posted ? new Date(posted).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
-  const jobUrl = `https://cloudmindai.in/jobs/${job.slug}`
+  const jobUrl = buildJobUrl(job)
 
   // Google Jobs (JobPosting) structured data for SEO.
   const jsonLd = {
