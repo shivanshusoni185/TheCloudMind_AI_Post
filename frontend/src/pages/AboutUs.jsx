@@ -31,7 +31,7 @@ function AboutUs() {
       <div style={{ maxWidth: 820, margin: '0 auto', padding: '48px 24px' }}>
         {/* Hero */}
         <section style={{ textAlign: 'center', marginBottom: 48 }}>
-          <img src={logo} alt="TheCloudMind.ai" style={{ height: 100, width: 100, borderRadius: '50%', objectFit: 'cover', display: 'inline-block' }} />
+          <img src={logo} alt="TheCloudMind.ai" style={{ height: 96, width: 'auto', maxWidth: 280, objectFit: 'contain', display: 'inline-block' }} />
           <div style={{ marginTop: 18 }}><div className="eyebrow">ABOUT US</div></div>
           <h1 style={{ margin: '8px 0 0', fontSize: 'clamp(32px, 5vw, 44px)', fontWeight: 700, letterSpacing: '-.015em', color: 'var(--fg1)' }}>
             TheCloudMind.ai

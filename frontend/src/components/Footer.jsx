@@ -11,8 +11,8 @@ function Footer() {
           {/* Brand */}
           <div>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-              <div style={{ background: '#FFFDF5', padding: 10, borderRadius: 16, flexShrink: 0 }}>
-                <img src={logo} alt="TheCloudMind.ai" style={{ height: 44, width: 44, display: 'block' }} />
+              <div style={{ background: '#FFFDF5', padding: '10px 14px', borderRadius: 16, flexShrink: 0 }}>
+                <img src={logo} alt="TheCloudMind.ai" style={{ height: 40, width: 'auto', maxWidth: 130, objectFit: 'contain', display: 'block' }} />
               </div>
               <div>
                 <div style={{ color: '#fff', fontWeight: 700, fontSize: 20, fontFamily: 'var(--font-sans)' }}>

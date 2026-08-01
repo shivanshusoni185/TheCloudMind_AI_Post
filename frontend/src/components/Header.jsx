@@ -34,20 +34,21 @@ function Header() {
     }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px' }}>
 
-        {/* Logo */}
-        <Link to="/" onClick={closeMobile} style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+        {/* Logo + tagline */}
+        <Link to="/" onClick={closeMobile} style={{ display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none' }}>
           <img
             src={logo}
             alt="TheCloudMind.ai"
-            style={{ height: 44, width: 44, borderRadius: '50%', objectFit: 'cover' }}
+            style={{ height: 46, width: 'auto', maxWidth: 150, objectFit: 'contain', display: 'block' }}
           />
-          <span style={{
-            fontSize: 17, fontWeight: 700, color: 'var(--fg1)',
-            fontFamily: 'var(--font-sans)',
-          }}
-            className="hidden sm:block"
-          >
-            TheCloudMind.ai
+          <span className="hidden sm:flex" style={{ alignItems: 'center', gap: 14 }}>
+            <span style={{ width: 1, height: 30, background: 'var(--cm-border)' }} />
+            <span style={{
+              fontSize: 10.5, fontWeight: 600, letterSpacing: '.2em', lineHeight: 1.35,
+              textTransform: 'uppercase', color: 'var(--fg5)', fontFamily: 'var(--font-sans)',
+            }}>
+              AI and Sports<br />Intelligence
+            </span>
           </span>
         </Link>
 

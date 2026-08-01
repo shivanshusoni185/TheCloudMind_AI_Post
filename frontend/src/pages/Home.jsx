@@ -8,6 +8,8 @@ function FilterBar({ active, onChange, search, setSearch, onSubmit }) {
   const tabs = [
     { label: 'All News', value: '' },
     { label: 'AI', value: 'AI' },
+    { label: 'Cricket', value: 'Cricket' },
+    { label: 'IPL', value: 'IPL' },
   ]
   return (
     <section style={{ marginBottom: 40 }}>
@@ -98,9 +100,12 @@ function Home() {
     return tags.some(t => t.toLowerCase() === active.toLowerCase())
   })
 
-  const heading = active === 'AI'
-    ? 'AI coverage — analysis and developments'
-    : 'Original reporting built for fast reading'
+  const headingMap = {
+    AI: 'AI coverage — analysis and developments',
+    Cricket: 'Cricket coverage — matches, form and analysis',
+    IPL: 'IPL coverage — results, standings and analysis',
+  }
+  const heading = headingMap[active] || 'Original reporting built for fast reading'
 
   return (
     <>
