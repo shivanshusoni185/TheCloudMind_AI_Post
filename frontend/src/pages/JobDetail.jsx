@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async'
 import { ArrowLeft, MapPin, Briefcase, Wifi, ExternalLink, Loader } from 'lucide-react'
 import { jobsApi } from '../lib/api'
 import { renderArticleContent } from '../lib/content'
+import ShareBar from '../components/ShareBar'
 
 function JobDetail() {
   const { slug } = useParams()
@@ -131,6 +132,8 @@ function JobDetail() {
           <p style={{ margin: '0 0 14px', color: 'var(--fg4)', fontSize: 14 }}>Interested in this role at {job.company}?</p>
           <ApplyButton block />
         </div>
+
+        <ShareBar url={jobUrl} title={`${job.title} at ${job.company}`} label="Share this job" />
         {tags.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 18 }}>
             {tags.map(t => (
