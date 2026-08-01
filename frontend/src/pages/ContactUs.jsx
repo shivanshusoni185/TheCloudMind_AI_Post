@@ -66,7 +66,7 @@ function ContactUs() {
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }} className="contact-grid">
+        <div className="contact-grid">
           {/* Info */}
           <div style={{ background: 'var(--bg5)', borderRadius: 28, padding: 28, color: '#fff' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 700, color: '#fff' }}>Why Contact Us?</h3>
@@ -87,7 +87,7 @@ function ContactUs() {
           </div>
 
           {/* Form */}
-          <div style={{ background: 'var(--cm-card)', border: '1px solid #e2e8f0', borderRadius: 28, padding: 32, boxShadow: 'var(--shadow-card)' }}>
+          <div style={{ background: 'var(--cm-card)', border: '1px solid #e2e8f0', borderRadius: 28, padding: 'clamp(20px, 4.5vw, 32px)', boxShadow: 'var(--shadow-card)' }}>
             <h2 style={{ margin: '0 0 24px', fontSize: 22, fontWeight: 700, color: 'var(--fg1)' }}>Send us a Message</h2>
 
             {success && (
@@ -102,7 +102,7 @@ function ContactUs() {
             )}
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="form-row">
                 <div>
                   <label style={labelStyle}>Your Name *</label>
                   <input type="text" name="name" value={formData.name} onChange={handleChange} required style={inputStyle} placeholder="John Doe" />

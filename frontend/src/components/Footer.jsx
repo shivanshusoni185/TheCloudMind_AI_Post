@@ -7,7 +7,7 @@ function Footer() {
   return (
     <footer style={{ marginTop: 64, background: '#1A1A17', color: '#e2e8f0' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 28px 20px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr', gap: 40 }}>
+        <div className="footer-grid">
           {/* Brand */}
           <div>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>

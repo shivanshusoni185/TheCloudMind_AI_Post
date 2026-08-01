@@ -164,7 +164,7 @@ function AdminDashboard() {
     <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Dashboard Header with Logo */}
       <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
             <img
               src={logo}
@@ -180,7 +180,7 @@ function AdminDashboard() {
               <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -249,8 +249,8 @@ function AdminDashboard() {
           <p className="text-gray-500 text-xl">No articles yet</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow overflow-hidden">
-          <table className="w-full">
+        <div className="bg-white rounded-xl shadow overflow-x-auto">
+          <table className="w-full min-w-[640px]">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Image</th>

@@ -42,7 +42,7 @@ function AboutUs() {
         </section>
 
         {/* Mission */}
-        <section style={{ background: 'var(--cm-card)', border: '1px solid #e2e8f0', borderRadius: 32, padding: 36, boxShadow: 'var(--shadow-card)', marginBottom: 20 }}>
+        <section style={{ background: 'var(--cm-card)', border: '1px solid #e2e8f0', borderRadius: 32, padding: 'clamp(20px, 4.5vw, 36px)', boxShadow: 'var(--shadow-card)', marginBottom: 20 }}>
           <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
             <div style={{ background: 'var(--teal-50)', color: 'var(--cm-accent)', padding: 12, borderRadius: 16, flexShrink: 0 }}>
               <Target size={26} />
@@ -62,7 +62,7 @@ function AboutUs() {
         <section style={{ marginBottom: 20 }}>
           <div className="eyebrow">WHAT WE STAND FOR</div>
           <h2 style={{ margin: '4px 0 22px', fontSize: 24, fontWeight: 700, color: 'var(--fg1)' }}>Built on four principles</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="values-grid">
+          <div className="values-grid">
             {values.map(v => (
               <div key={v.title} style={{ background: 'var(--cm-card)', border: '1px solid rgba(226,232,240,.8)', borderRadius: 28, padding: 24, boxShadow: 'var(--shadow-rest)' }}>
                 <div style={{ background: colorMap[v.color].bg, color: colorMap[v.color].fg, padding: 10, borderRadius: 16, width: 'fit-content' }}>
@@ -76,7 +76,7 @@ function AboutUs() {
         </section>
 
         {/* CTA */}
-        <section style={{ background: 'var(--bg5)', color: '#fff', padding: 44, borderRadius: 32, textAlign: 'center', boxShadow: 'var(--shadow-cta)' }}>
+        <section style={{ background: 'var(--bg5)', color: '#fff', padding: 'clamp(24px, 5vw, 44px)', borderRadius: 32, textAlign: 'center', boxShadow: 'var(--shadow-cta)' }}>
           <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: '#fff' }}>Stay in the loop</h2>
           <p style={{ margin: '10px auto 24px', maxWidth: 420, color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>
             Follow us on YouTube and Instagram for daily AI briefs, highlights, and behind-the-scenes content.

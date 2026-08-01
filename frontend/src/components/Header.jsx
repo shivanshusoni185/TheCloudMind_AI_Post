@@ -52,7 +52,7 @@ function Header() {
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex" style={{ gap: 26, alignItems: 'center', display: 'flex' }}>
+        <nav className="hidden md:flex" style={{ gap: 26, alignItems: 'center' }}>
           {NAV_LINKS.map((link) => (
             <Link
               key={link.to}

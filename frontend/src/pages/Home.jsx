@@ -28,8 +28,8 @@ function FilterBar({ active, onChange, search, setSearch, onSubmit }) {
               ))}
             </div>
           </div>
-          <form onSubmit={e => { e.preventDefault(); onSubmit() }} style={{ display: 'flex', gap: 8 }}>
-            <div style={{ position: 'relative' }}>
+          <form onSubmit={e => { e.preventDefault(); onSubmit() }} className="search-form">
+            <div className="search-input-wrap">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }}>
                 <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
@@ -38,10 +38,11 @@ function FilterBar({ active, onChange, search, setSearch, onSubmit }) {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search stories..."
+                className="search-input"
                 style={{
                   border: '1px solid #e2e8f0', background: '#fff', borderRadius: 14,
                   padding: '10px 14px 10px 38px', fontFamily: 'inherit', fontSize: 13,
-                  outline: 'none', width: 200,
+                  outline: 'none',
                 }}
               />
             </div>

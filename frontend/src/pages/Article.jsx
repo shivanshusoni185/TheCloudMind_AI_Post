@@ -85,7 +85,7 @@ function Article() {
           </div>
         )}
 
-        <header style={{ marginTop: 20, background: 'var(--cm-card)', border: '1px solid #e2e8f0', borderRadius: 32, padding: 32, boxShadow: 'var(--shadow-card)' }}>
+        <header style={{ marginTop: 20, background: 'var(--cm-card)', border: '1px solid #e2e8f0', borderRadius: 32, padding: 'clamp(18px, 4vw, 32px)', boxShadow: 'var(--shadow-card)' }}>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.24em', color: 'var(--fg5)', marginBottom: 14 }}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
               <Calendar size={13} /> {date}
@@ -108,7 +108,7 @@ function Article() {
 
         <div
           className="article-body"
-          style={{ marginTop: 20, background: 'var(--cm-card)', border: '1px solid #e2e8f0', borderRadius: 28, padding: '28px 32px', boxShadow: 'var(--shadow-rest)' }}
+          style={{ marginTop: 20, background: 'var(--cm-card)', border: '1px solid #e2e8f0', borderRadius: 28, padding: 'clamp(18px, 4vw, 28px) clamp(18px, 4.5vw, 32px)', boxShadow: 'var(--shadow-rest)' }}
           dangerouslySetInnerHTML={{ __html: article.content }}
         />
       </article>
