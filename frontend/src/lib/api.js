@@ -73,6 +73,19 @@ export const newsApi = {
   getBySlug: (slug) => withRetry(() => api.get(`/news/by-slug/${slug}`)),
 };
 
+export const jobsApi = {
+  getAll: ({ search = '', category = '', remote = null, tag = '' } = {}) => {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (category) params.append('category', category);
+    if (remote !== null) params.append('remote', remote);
+    if (tag) params.append('tag', tag);
+    return withRetry(() => api.get(`/jobs?${params.toString()}`));
+  },
+  getCategories: () => withRetry(() => api.get('/jobs/categories')),
+  getBySlug: (slug) => withRetry(() => api.get(`/jobs/by-slug/${slug}`)),
+};
+
 export const adminApi = {
   login: (username, password) => {
     const formData = new URLSearchParams();
@@ -95,6 +108,12 @@ export const adminApi = {
   runAutomation: () => api.post('/admin/automation/run', null, { timeout: 120000 }),
   refreshAutomationImages: () => api.post('/admin/automation/refresh-images', null, { timeout: 120000 }),
   refreshAutomationContent: () => api.post('/admin/automation/refresh-content', null, { timeout: 120000 }),
+  // Jobs
+  getAllJobs: () => api.get('/admin/jobs'),
+  createJob: (data) => api.post('/admin/jobs', data),
+  updateJob: (id, data) => api.put(`/admin/jobs/${id}`, data),
+  deleteJob: (id) => api.delete(`/admin/jobs/${id}`),
+  fetchJobs: () => api.post('/admin/jobs/fetch', null, { timeout: 120000 }),
 };
 
 export const getImageUrl = (imagePath) => {

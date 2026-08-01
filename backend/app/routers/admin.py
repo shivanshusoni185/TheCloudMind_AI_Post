@@ -4,10 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import News, generate_slug
-from ..schemas import NewsResponse, Token
+from ..models import News, Job, generate_slug
+from ..schemas import NewsResponse, Token, JobResponse, JobCreate, JobUpdate
 from ..auth import authenticate_admin, create_access_token, get_current_admin
 from .. import cache as news_cache
+from ..services.jobs_fetcher import fetch_and_store_jobs
 from agents.auto_publish import (
     refresh_automated_article_content,
     refresh_automated_article_images,
@@ -280,6 +281,81 @@ async def refresh_automation_content(
     stats = refresh_automated_article_content()
     news_cache.invalidate()
     return {"message": "Automation content refreshed", "updated": stats}
+
+
+# ── Jobs management ───────────────────────────────────────────────
+
+@router.get("/jobs", response_model=list[JobResponse])
+async def admin_list_jobs(
+    db: Session = Depends(get_db),
+    current_admin: str = Depends(get_current_admin),
+):
+    jobs = (
+        db.query(Job)
+        .order_by(Job.pinned.desc(), Job.created_at.desc())
+        .all()
+    )
+    return jobs
+
+
+@router.post("/jobs", response_model=JobResponse)
+async def admin_create_job(
+    payload: JobCreate,
+    db: Session = Depends(get_db),
+    current_admin: str = Depends(get_current_admin),
+):
+    job = Job(source="manual", **payload.model_dump())
+    base = f"{job.title} at {job.company}" if job.company else job.title
+    job.slug = generate_slug(base, db, Job)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    news_cache.invalidate()
+    return job
+
+
+@router.put("/jobs/{job_id}", response_model=JobResponse)
+async def admin_update_job(
+    job_id: int,
+    payload: JobUpdate,
+    db: Session = Depends(get_db),
+    current_admin: str = Depends(get_current_admin),
+):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(job, key, value)
+    db.commit()
+    db.refresh(job)
+    news_cache.invalidate()
+    return job
+
+
+@router.delete("/jobs/{job_id}")
+async def admin_delete_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_admin: str = Depends(get_current_admin),
+):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    db.delete(job)
+    db.commit()
+    news_cache.invalidate()
+    return {"message": "Job deleted successfully"}
+
+
+@router.post("/jobs/fetch")
+async def admin_fetch_jobs(
+    limit: int = 100,
+    current_admin: str = Depends(get_current_admin),
+):
+    """Pull the latest jobs from the free jobs API and upsert them."""
+    stats = fetch_and_store_jobs(limit=limit)
+    news_cache.invalidate()
+    return {"message": "Jobs fetch completed", "updated": stats}
 
 
 @router.post("/automation/agent-run")

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Trash2, Loader, Eye, EyeOff, RefreshCw, LogOut, Plus, X, Bot, Image as ImageIcon } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Trash2, Loader, Eye, EyeOff, RefreshCw, LogOut, Plus, X, Bot, Image as ImageIcon, Briefcase } from 'lucide-react'
 import { adminApi, getImageUrl } from '../lib/api'
 import logo from '../assets/logo.jpg'
 
@@ -189,6 +189,14 @@ function AdminDashboard() {
               <Plus className="w-5 h-5" />
               Create Post
             </button>
+            <Link
+              to="/admin/jobs"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition"
+              title="Manage jobs board"
+            >
+              <Briefcase className="w-5 h-5" />
+              Manage Jobs
+            </Link>
             <button
               onClick={handleAutomationRun}
               disabled={runningAutomation}

@@ -6,6 +6,7 @@ import logo from '../assets/logo.png'
 const NAV_LINKS = [
   { to: '/', label: 'Home' },
   { to: '/latest-news', label: 'Latest' },
+  { to: '/jobs', label: 'Jobs' },
   { to: '/about', label: 'About' },
   { to: '/contact', label: 'Contact' },
 ]

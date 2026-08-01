@@ -139,6 +139,95 @@ class NewsListResponse(BaseModel):
         from_attributes = True
 
 
+# ── Jobs ──────────────────────────────────────────────────────────
+
+class JobBase(BaseModel):
+    title: str
+    company: str
+    location: Optional[str] = None
+    remote: bool = False
+    job_type: Optional[str] = None
+    category: Optional[str] = None
+    tags: Optional[List[str]] = None
+    description: Optional[str] = None
+    apply_url: str
+    company_logo: Optional[str] = None
+    salary: Optional[str] = None
+
+    @field_validator('tags', mode='before')
+    @classmethod
+    def validate_tags(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [v.strip()] if v.strip() else []
+        if isinstance(v, list):
+            return v
+        return []
+
+
+class JobCreate(JobBase):
+    published: bool = True
+    pinned: bool = False
+
+
+class JobUpdate(BaseModel):
+    title: Optional[str] = None
+    company: Optional[str] = None
+    location: Optional[str] = None
+    remote: Optional[bool] = None
+    job_type: Optional[str] = None
+    category: Optional[str] = None
+    tags: Optional[List[str]] = None
+    description: Optional[str] = None
+    apply_url: Optional[str] = None
+    company_logo: Optional[str] = None
+    salary: Optional[str] = None
+    published: Optional[bool] = None
+    pinned: Optional[bool] = None
+
+
+class JobListResponse(BaseModel):
+    id: int
+    title: str
+    company: str
+    location: Optional[str] = None
+    remote: bool = False
+    job_type: Optional[str] = None
+    category: Optional[str] = None
+    tags: Optional[List[str]] = None
+    company_logo: Optional[str] = None
+    salary: Optional[str] = None
+    pinned: bool = False
+    posted_at: Optional[datetime] = None
+    created_at: datetime
+    slug: Optional[str] = None
+
+    @field_validator('tags', mode='before')
+    @classmethod
+    def validate_tags(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [v.strip()] if v.strip() else []
+        if isinstance(v, list):
+            return v
+        return []
+
+    class Config:
+        from_attributes = True
+
+
+class JobResponse(JobListResponse):
+    description: Optional[str] = None
+    apply_url: str
+    source: Optional[str] = None
+    published: bool = True
+
+    class Config:
+        from_attributes = True
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str

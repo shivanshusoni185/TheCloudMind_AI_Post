@@ -5,8 +5,11 @@ import ChatWidget from './components/ChatWidget'
 import Home from './pages/Home'
 import Article from './pages/Article'
 import LatestNews from './pages/LatestNews'
+import Jobs from './pages/Jobs'
+import JobDetail from './pages/JobDetail'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
+import AdminJobs from './pages/AdminJobs'
 import ContactUs from './pages/ContactUs'
 import AboutUs from './pages/AboutUs'
 
@@ -19,10 +22,13 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/article/:slug" element={<Article />} />
           <Route path="/latest-news" element={<LatestNews />} />
+          <Route path="/jobs" element={<Jobs />} />
+          <Route path="/jobs/:slug" element={<JobDetail />} />
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/about" element={<AboutUs />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/jobs" element={<AdminJobs />} />
         </Routes>
       </main>
       <Footer />

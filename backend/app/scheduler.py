@@ -7,6 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from agents.auto_publish import run_auto_publish
 from agents.agent_pipeline import run_agent_pipeline
+from .services.jobs_fetcher import fetch_and_store_jobs
 from . import cache as news_cache
 
 try:
@@ -84,6 +85,17 @@ def _agent_pipeline_worker() -> None:
         logger.exception("[Scheduler] agent pipeline job raised an unhandled exception")
 
 
+def _jobs_fetch_worker() -> None:
+    """Fetches jobs from the free jobs API in a thread pool thread."""
+    try:
+        logger.info("[Scheduler] jobs fetch started")
+        stats = fetch_and_store_jobs(limit=int(os.getenv("JOBS_FETCH_LIMIT", "100")))
+        news_cache.invalidate()
+        logger.info("[Scheduler] jobs fetch completed: %s", stats)
+    except Exception:
+        logger.exception("[Scheduler] jobs fetch raised an unhandled exception")
+
+
 # ── Async wrappers scheduled by APScheduler ────────────────────────────────
 
 async def _run_auto_publish_job() -> None:
@@ -96,6 +108,12 @@ async def _run_agent_pipeline_job() -> None:
     """Offload blocking work to a thread so the event loop stays free."""
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _agent_pipeline_worker)
+
+
+async def _run_jobs_fetch_job() -> None:
+    """Offload blocking work to a thread so the event loop stays free."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _jobs_fetch_worker)
 
 
 # ── Scheduler lifecycle ────────────────────────────────────────────────────
@@ -145,13 +163,27 @@ def start_scheduler() -> None:
         misfire_grace_time=_MISFIRE_GRACE_SECS,
     )
 
+    # Jobs board refresh — daily at 08:00 IST (before the news jobs)
+    jobs_hour = int(os.getenv("JOBS_FETCH_HOUR", "8"))
+    jobs_minute = int(os.getenv("JOBS_FETCH_MINUTE", "0"))
+    scheduler.add_job(
+        _run_jobs_fetch_job,
+        CronTrigger(hour=jobs_hour, minute=jobs_minute, timezone=timezone),
+        id="daily-jobs-fetch",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=_MISFIRE_GRACE_SECS,
+    )
+
     scheduler.start()
     _scheduler = scheduler
     logger.info(
         "[Scheduler] started — auto-publish at %02d:%02d %s, "
-        "agent pipeline at %02d:%02d %s",
+        "agent pipeline at %02d:%02d %s, jobs fetch at %02d:%02d %s",
         hour, minute, timezone,
         agent_hour, agent_minute, timezone,
+        jobs_hour, jobs_minute, timezone,
     )
 
     if _env_bool("AUTO_PUBLISH_RUN_ON_STARTUP", False):

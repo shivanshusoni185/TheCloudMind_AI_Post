@@ -159,6 +159,53 @@ class News(Base):
         )
 
 
+class Job(Base):
+    """
+    Job listing — sourced from a free jobs API on a schedule and/or added
+    manually via the admin dashboard. Table auto-creates on startup via
+    Base.metadata.create_all (see app/main.py); no migration needed.
+    """
+    __tablename__ = "jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(300), nullable=False, index=True)
+    company = Column(String(255), nullable=False, index=True)
+    location = Column(String(255), nullable=True)
+    remote = Column(Boolean, default=False, index=True)
+    job_type = Column(String(100), nullable=True)      # Full-time, Contract, …
+    category = Column(String(100), nullable=True, index=True)  # software-dev, data, …
+    tags = Column(JSON, nullable=True, default=list)
+    description = Column(Text, nullable=True)           # HTML/markdown from source
+    apply_url = Column(String(1000), nullable=False)
+    company_logo = Column(String(1000), nullable=True)
+    salary = Column(String(255), nullable=True)
+    source = Column(String(100), nullable=True, index=True)     # 'remotive' | 'manual'
+    source_id = Column(String(150), nullable=True, index=True)  # dedupe key within a source
+    published = Column(Boolean, default=True, index=True)
+    pinned = Column(Boolean, default=False, index=True)
+    posted_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    slug = Column(String(350), unique=True, nullable=True)
+
+    @validates('tags')
+    def validate_tags(self, key, tags):
+        if tags is None:
+            return []
+        if isinstance(tags, str):
+            return [tags.strip()] if tags.strip() else []
+        if isinstance(tags, list):
+            return tags
+        return []
+
+    def generate_slug_from_title(self, db_session: Optional[Session] = None):
+        if not self.slug and self.title:
+            base = f"{self.title} at {self.company}" if self.company else self.title
+            self.slug = generate_slug(base, db_session, Job)
+
+    def __repr__(self) -> str:
+        return f"<Job(id={self.id}, title='{self.title[:20]}...', company='{self.company}')>"
+
+
 class Contact(Base):
     """
     Contact model for storing contact form submissions.
