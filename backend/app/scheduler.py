@@ -9,9 +9,40 @@ from agents.auto_publish import run_auto_publish
 from agents.agent_pipeline import run_agent_pipeline
 from . import cache as news_cache
 
+try:
+    import fcntl  # POSIX only; present in the Linux container
+except ImportError:  # e.g. local Windows dev — single process, no lock needed
+    fcntl = None
+
 logger = logging.getLogger(__name__)
 
 _scheduler: AsyncIOScheduler | None = None
+
+# Held open for the process lifetime to keep the cross-worker lock. Without a
+# module-level reference the file object would be GC'd and the lock released.
+_lock_file = None
+
+
+def _acquire_scheduler_lock() -> bool:
+    """Return True if this process should run the scheduler.
+
+    With ``uvicorn --workers N`` every worker is a separate process and each
+    calls ``start_scheduler()``. An exclusive non-blocking ``flock`` lets only
+    the first worker win, so the daily jobs fire exactly once. The lock is tied
+    to the file descriptor and auto-released by the OS if that worker exits, so
+    a respawned worker can take over on its next startup.
+    """
+    global _lock_file
+    if fcntl is None:  # no flock available — assume single process
+        return True
+    path = os.getenv("SCHEDULER_LOCK_PATH", "/tmp/cloudmind-scheduler.lock")
+    try:
+        f = open(path, "w")
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return False
+    _lock_file = f
+    return True
 
 # Grace period: if the job misfires (server busy / restarting at scheduled
 # time), APScheduler will still run it within this window (seconds).
@@ -77,6 +108,11 @@ def start_scheduler() -> None:
 
     if not _env_bool("AUTO_PUBLISH_ENABLED", True):
         logger.info("[Scheduler] disabled via AUTO_PUBLISH_ENABLED")
+        return
+
+    # Only one worker process may own the scheduler (see _acquire_scheduler_lock).
+    if not _acquire_scheduler_lock():
+        logger.info("[Scheduler] another worker holds the lock — not starting in this worker")
         return
 
     timezone = os.getenv("AUTO_PUBLISH_TIMEZONE", "Asia/Kolkata")
