@@ -36,7 +36,52 @@ API_BASE = os.getenv("TCM_API_BASE", "https://cloudmindai.in/api").rstrip("/")
 SITE_BASE = API_BASE[:-4] if API_BASE.endswith("/api") else API_BASE
 REQUEST_TIMEOUT = 20.0
 
-mcp = FastMCP("thecloudmind")
+# ── OAuth (optional) ─────────────────────────────────────────────────────────
+# Set MCP_OAUTH_PASSWORD to turn the server into an OAuth-gated connector (the
+# polished "Sign in / Authorize" flow claude.ai custom connectors use). When
+# unset, the server behaves per MCP_AUTH_TOKEN (bearer) or fully open.
+_OAUTH_PASSWORD = os.getenv("MCP_OAUTH_PASSWORD", "").strip()
+_OAUTH_ISSUER = os.getenv("MCP_ISSUER_URL", "https://cloudmindai.in").rstrip("/")
+_OAUTH_ENABLED = bool(_OAUTH_PASSWORD) and os.getenv("MCP_TRANSPORT", "stdio").strip().lower() in (
+    "http", "streamable-http", "streamable_http",
+)
+
+_oauth_provider = None
+if _OAUTH_ENABLED:
+    from oauth import TCMOAuthProvider, build_auth_settings
+
+    _oauth_provider = TCMOAuthProvider(_OAUTH_ISSUER, _OAUTH_PASSWORD)
+    mcp = FastMCP(
+        "thecloudmind",
+        auth=build_auth_settings(_OAUTH_ISSUER),
+        auth_server_provider=_oauth_provider,
+    )
+else:
+    mcp = FastMCP("thecloudmind")
+
+
+if _OAUTH_ENABLED:
+    from starlette.requests import Request
+    from starlette.responses import HTMLResponse, RedirectResponse
+
+    from oauth import render_login
+
+    @mcp.custom_route("/login", methods=["GET"])
+    async def login_get(request: Request):  # noqa: ANN201
+        rid = request.query_params.get("rid", "")
+        return HTMLResponse(render_login(rid))
+
+    @mcp.custom_route("/login", methods=["POST"])
+    async def login_post(request: Request):  # noqa: ANN201
+        form = await request.form()
+        rid = str(form.get("rid", ""))
+        password = str(form.get("password", ""))
+        if not _oauth_provider.check_password(password):
+            return HTMLResponse(render_login(rid, error=True), status_code=401)
+        redirect_url = _oauth_provider.complete_login(rid)
+        if not redirect_url:
+            return HTMLResponse("Login session expired. Please reconnect.", status_code=400)
+        return RedirectResponse(redirect_url, status_code=302)
 
 _client = httpx.Client(
     base_url=API_BASE,
@@ -266,7 +311,9 @@ def _run_http() -> None:
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8765"))
     path = os.getenv("MCP_PATH", "/mcp")
-    token = os.getenv("MCP_AUTH_TOKEN", "").strip()
+    # OAuth is the gate when enabled — never also apply the static bearer wrapper
+    # (it would block the unauthenticated /authorize, /token, /register routes).
+    token = "" if _OAUTH_ENABLED else os.getenv("MCP_AUTH_TOKEN", "").strip()
 
     # DNS-rebinding protection validates the Host/Origin headers. When the
     # server sits behind a reverse proxy the incoming Host is the public domain,

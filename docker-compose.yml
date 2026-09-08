@@ -30,6 +30,12 @@ services:
       # Set either in /opt/cloudmind/.env to re-enable (e.g. for Desktop/Code).
       MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
       MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-}
+      # OAuth connector mode: set MCP_OAUTH_PASSWORD in /opt/cloudmind/.env to
+      # turn on the "Sign in / Authorize" flow (like claude.ai's built-in
+      # connectors). Issuer is the public origin; OAuth routes (/authorize,
+      # /token, /register, /login, /.well-known/oauth-*) are proxied by nginx.
+      MCP_ISSUER_URL: https://cloudmindai.in
+      MCP_OAUTH_PASSWORD: ${MCP_OAUTH_PASSWORD:-}
     expose:
       - "8765"
     depends_on:
