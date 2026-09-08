@@ -104,6 +104,25 @@ Reload nginx. The endpoint is now `https://cloudmindai.in/mcp`.
   Claude Desktop/Code today. (OAuth can be layered on later without changing the
   tools.)
 
+## C) OAuth connector mode (like claude.ai's built-in connectors)
+
+Set `MCP_OAUTH_PASSWORD` (http transport) to turn the server into a proper
+OAuth 2.1 connector: Claude dynamically registers, the user hits a **Sign in /
+Authorize** page (single shared password), and Claude exchanges a PKCE
+authorization code for a bearer token. The MCP SDK provides discovery, token,
+registration, and PKCE; `oauth.py` provides storage + the login gate.
+
+Enabled in production via `docker-compose` — set `MCP_OAUTH_PASSWORD` in
+`/opt/cloudmind/.env` and recreate the `mcp` container. nginx proxies the OAuth
+routes (`/.well-known/oauth-*`, `/authorize`, `/token`, `/register`, `/revoke`,
+`/login`) to the container. Issuer = `MCP_ISSUER_URL` (default the public
+origin).
+
+Add it on **claude.ai → Settings → Connectors → Add custom connector** with URL
+`https://cloudmindai.in/mcp`; Claude runs the OAuth flow and shows the login
+page. Precedence: if `MCP_OAUTH_PASSWORD` is set it wins; else `MCP_AUTH_TOKEN`
+(static bearer); else open.
+
 ## Configuration (env vars)
 
 | Var | Default | Meaning |
@@ -114,3 +133,5 @@ Reload nginx. The endpoint is now `https://cloudmindai.in/mcp`.
 | `MCP_PORT` | `8765` | Bind port (http) |
 | `MCP_PATH` | `/mcp` | URL path (http) |
 | `MCP_AUTH_TOKEN` | _(empty)_ | If set (http), requires `Authorization: Bearer <token>` |
+| `MCP_OAUTH_PASSWORD` | _(empty)_ | If set (http), enables OAuth connector mode gated by this shared login password (takes precedence over `MCP_AUTH_TOKEN`) |
+| `MCP_ISSUER_URL` | `https://cloudmindai.in` | OAuth issuer / public origin for connector mode |
