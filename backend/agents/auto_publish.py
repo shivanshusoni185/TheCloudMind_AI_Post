@@ -1,10 +1,12 @@
 ﻿import html
 import json
 import logging
+import math
 import os
 import re
 import time
 import unicodedata
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Iterable, Optional
 from urllib.parse import quote, urlparse
@@ -1009,29 +1011,71 @@ def _iter_entries(feed: FeedConfig, limit: int) -> Iterable[dict]:
     return parsed.entries[:limit]
 
 
-def run_auto_publish(max_per_topic: int = 5) -> dict[str, int]:
+def run_auto_publish(
+    max_per_topic: int = 5,
+    max_per_source: Optional[int] = None,
+) -> dict[str, int]:
+    """Publish up to ``max_per_topic`` fresh stories per topic.
+
+    The topic quota is shared *fairly* across that topic's sources using a
+    round-robin: every source gets a chance to contribute one story before any
+    source contributes a second. Without this, the first feed in ``FEEDS``
+    (TechCrunch, whose AI feed is very busy) would fill the entire AI quota on
+    every run and the other AI sources would never get published — the source
+    bias this project was meant to avoid.
+
+    ``max_per_source`` caps how many stories a single source may contribute per
+    run; when ``None`` it's derived so the topic quota spreads evenly across the
+    topic's sources. Overridable via the ``AUTO_PUBLISH_MAX_PER_SOURCE`` env var.
+    """
+    if max_per_source is None:
+        env_cap = os.getenv("AUTO_PUBLISH_MAX_PER_SOURCE")
+        max_per_source = int(env_cap) if env_cap else None
+
     stats = {"ai": 0, "cricket": 0}
+
+    feeds_by_topic: dict[str, list[FeedConfig]] = defaultdict(list)
+    for feed in FEEDS:
+        feeds_by_topic[feed.topic].append(feed)
+
     db = SessionLocal()
     try:
-        for feed in FEEDS:
-            if stats.get(feed.topic, 0) >= max_per_topic:
-                continue
-            for entry in _iter_entries(feed, max_per_topic * 3):
-                if stats.get(feed.topic, 0) >= max_per_topic:
-                    break
-                try:
-                    created = _create_news_item(db, feed, entry)
-                except Exception as exc:
-                    db.rollback()
-                    logger.exception(
-                        "Auto-publish failed for topic %s and entry %s: %s",
-                        feed.topic,
-                        entry.get("title"),
-                        exc,
-                    )
-                    continue
-                if created:
-                    stats[feed.topic] += 1
+        for topic, feeds in feeds_by_topic.items():
+            per_source_cap = max_per_source or max(1, math.ceil(max_per_topic / len(feeds)))
+
+            # One lazy iterator of candidate entries per source, consumed
+            # round-robin so sources alternate rather than the first one
+            # monopolising the topic quota.
+            queues = [(feed, iter(_iter_entries(feed, max_per_topic * 3))) for feed in feeds]
+            published_per_source: dict[str, int] = {feed.source_name: 0 for feed in feeds}
+
+            made_progress = True
+            while made_progress and stats.get(topic, 0) < max_per_topic:
+                made_progress = False
+                for feed, entries in queues:
+                    if stats.get(topic, 0) >= max_per_topic:
+                        break
+                    if published_per_source[feed.source_name] >= per_source_cap:
+                        continue
+                    # Pull from this source until one story publishes (or it runs dry),
+                    # then move on to the next source — at most one per round.
+                    for entry in entries:
+                        made_progress = True
+                        try:
+                            created = _create_news_item(db, feed, entry)
+                        except Exception as exc:
+                            db.rollback()
+                            logger.exception(
+                                "Auto-publish failed for topic %s and entry %s: %s",
+                                topic,
+                                entry.get("title"),
+                                exc,
+                            )
+                            continue
+                        if created:
+                            stats[topic] += 1
+                            published_per_source[feed.source_name] += 1
+                            break
     finally:
         db.close()
     return stats
