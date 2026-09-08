@@ -8,6 +8,25 @@ services:
     networks:
       - app
 
+  mcp:
+    build: ./mcp-server
+    restart: unless-stopped
+    environment:
+      # Read-only MCP server (streamable-http). Data is fetched from the public
+      # API so article/job URLs resolve to real https://cloudmindai.in links.
+      MCP_TRANSPORT: http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8765"
+      # Bearer token gating the /mcp endpoint. Set in /opt/cloudmind/.env on the
+      # server (compose substitutes it here); empty = no auth.
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+    expose:
+      - "8765"
+    depends_on:
+      - backend
+    networks:
+      - app
+
   nginx:
     build:
       context: .
@@ -21,6 +40,7 @@ services:
       - certbot-www:/var/www/certbot
     depends_on:
       - backend
+      - mcp
     networks:
       - app
     # Reload every 6h so renewed certificates are picked up without a restart
