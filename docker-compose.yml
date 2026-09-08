@@ -17,14 +17,19 @@ services:
       MCP_TRANSPORT: http
       MCP_HOST: 0.0.0.0
       MCP_PORT: "8765"
-      # Public host(s) allow-listed for DNS-rebinding protection (Host header
-      # arriving via nginx). Comma-separated.
-      MCP_ALLOWED_HOSTS: cloudmindai.in
       # Correct public links in tool output.
       TCM_API_BASE: https://cloudmindai.in/api
-      # Bearer token gating the /mcp endpoint. Set in /opt/cloudmind/.env on the
-      # server (compose substitutes it here); empty = no auth.
+      # Open read-only endpoint so it works as a claude.ai custom connector
+      # (that flow allows no-auth or OAuth, not a static bearer header). Both of
+      # these default empty:
+      #   MCP_AUTH_TOKEN    empty -> no bearer gate (claude.ai web can connect).
+      #   MCP_ALLOWED_HOSTS empty -> DNS-rebinding protection OFF, so requests
+      #                     with any Host/Origin (e.g. Origin: https://claude.ai)
+      #                     are accepted. Safe: data is public + behind nginx,
+      #                     and nginx rate-limits the /mcp location.
+      # Set either in /opt/cloudmind/.env to re-enable (e.g. for Desktop/Code).
       MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+      MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-}
     expose:
       - "8765"
     depends_on:
