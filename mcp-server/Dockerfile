@@ -5,7 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY server.py .
+COPY server.py oauth.py ./
 
 # Streamable-HTTP transport, bound inside the container network.
 ENV MCP_TRANSPORT=http \
