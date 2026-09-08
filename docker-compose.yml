@@ -17,6 +17,11 @@ services:
       MCP_TRANSPORT: http
       MCP_HOST: 0.0.0.0
       MCP_PORT: "8765"
+      # Public host(s) allow-listed for DNS-rebinding protection (Host header
+      # arriving via nginx). Comma-separated.
+      MCP_ALLOWED_HOSTS: cloudmindai.in
+      # Correct public links in tool output.
+      TCM_API_BASE: https://cloudmindai.in/api
       # Bearer token gating the /mcp endpoint. Set in /opt/cloudmind/.env on the
       # server (compose substitutes it here); empty = no auth.
       MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}

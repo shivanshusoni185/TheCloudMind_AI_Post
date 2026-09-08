@@ -261,10 +261,29 @@ def _run_http() -> None:
     """Run the streamable-http transport, optionally gated by a bearer token."""
     import uvicorn
 
+    from mcp.server.transport_security import TransportSecuritySettings
+
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8765"))
     path = os.getenv("MCP_PATH", "/mcp")
     token = os.getenv("MCP_AUTH_TOKEN", "").strip()
+
+    # DNS-rebinding protection validates the Host/Origin headers. When the
+    # server sits behind a reverse proxy the incoming Host is the public domain,
+    # not localhost, so it must be allow-listed. Set MCP_ALLOWED_HOSTS
+    # (comma-separated, e.g. "cloudmindai.in") to keep protection on; leave it
+    # unset for local/proxied use where the token + trusted proxy are the guard.
+    allowed_hosts = [h.strip() for h in os.getenv("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()]
+    if allowed_hosts:
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=allowed_hosts,
+            allowed_origins=[f"https://{h}" for h in allowed_hosts] + [f"http://{h}" for h in allowed_hosts],
+        )
+    else:
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False,
+        )
 
     mcp.settings.host = host
     mcp.settings.port = port
