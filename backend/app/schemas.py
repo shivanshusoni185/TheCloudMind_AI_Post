@@ -3,6 +3,16 @@ from datetime import datetime
 from typing import Optional, List, Any
 
 
+def _news_image_path(data) -> str:
+    """Image URL with a version tag from updated_at, so a replaced image gets a
+    new URL. That lets browsers and nginx cache image responses for a long
+    time without ever serving a stale picture after an edit."""
+    updated = getattr(data, 'updated_at', None)
+    if updated is not None:
+        return f"/news/image/{data.id}?v={int(updated.timestamp())}"
+    return f"/news/image/{data.id}"
+
+
 class NewsBase(BaseModel):
     title: str
     summary: str
@@ -68,9 +78,11 @@ class NewsResponse(NewsBase):
                 if hasattr(data, key):
                     result[key] = getattr(data, key)
 
-            # Compute image_url
-            if hasattr(data, 'image_data') and data.image_data:
-                result['image_url'] = f"/news/image/{data.id}"
+            # Compute image_url. Detect an image via image_filename (always
+            # set alongside image_data) so the binary blob, which the detail
+            # queries defer, is never lazy-loaded just to build a URL.
+            if getattr(data, 'image_filename', None) or data.__dict__.get('image_data'):
+                result['image_url'] = _news_image_path(data)
             elif hasattr(data, '_image_url_legacy') and data._image_url_legacy:
                 result['image_url'] = data._image_url_legacy
             else:
@@ -114,7 +126,7 @@ class NewsListResponse(BaseModel):
             # Use image_filename (lightweight text) to detect whether an
             # image was stored — avoids lazy-loading the binary blob.
             if getattr(data, 'image_filename', None):
-                result['image_url'] = f"/news/image/{data.id}"
+                result['image_url'] = _news_image_path(data)
             elif getattr(data, '_image_url_legacy', None):
                 result['image_url'] = data._image_url_legacy
             else:

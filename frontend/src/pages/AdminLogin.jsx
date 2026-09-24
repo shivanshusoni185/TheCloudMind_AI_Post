@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Lock, User, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react'
 import { adminApi } from '../lib/api'
-import logo from '../assets/logo.jpg'
+import logo from '../assets/logo-square.webp'
 
 function AdminLogin() {
   const navigate = useNavigate()

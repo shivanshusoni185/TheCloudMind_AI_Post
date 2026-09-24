@@ -15,6 +15,10 @@ _store: dict[str, tuple[object, float]] = {}
 # Default TTL in seconds (60 s is enough for a news site)
 DEFAULT_TTL = 60
 
+# Keys include free-text search terms and article slugs, so bound the store:
+# once it grows past this, expired entries are swept on the next write.
+MAX_ENTRIES = 500
+
 
 def get(key: str):
     """Return cached value or None if missing / expired."""
@@ -32,8 +36,14 @@ def get(key: str):
 
 def set(key: str, value, ttl: int = DEFAULT_TTL) -> None:
     """Store value under key, expiring after ttl seconds."""
+    now = time.monotonic()
     with _lock:
-        _store[key] = (value, time.monotonic() + ttl)
+        if len(_store) >= MAX_ENTRIES:
+            for k in [k for k, (_, exp) in _store.items() if exp < now]:
+                del _store[k]
+            if len(_store) >= MAX_ENTRIES:
+                _store.clear()
+        _store[key] = (value, now + ttl)
 
 
 def invalidate() -> None:

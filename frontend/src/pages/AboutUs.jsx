@@ -1,6 +1,6 @@
 import { Helmet } from 'react-helmet-async'
 import { Target, Users, Zap, Brain, TrendingUp } from 'lucide-react'
-import logo from '../assets/logo.png'
+import logo from '../assets/logo.webp'
 
 const values = [
   { icon: Brain, title: 'Expert Knowledge', color: 'teal', description: 'Deep understanding of AI technology and its implications for the future.' },

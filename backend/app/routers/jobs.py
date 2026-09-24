@@ -80,10 +80,16 @@ def list_categories(db: Session = Depends(get_db)):
 
 @router.get("/by-slug/{slug}", response_model=JobResponse)
 def get_job_by_slug(slug: str, db: Session = Depends(get_db)):
+    cache_key = f"job_slug:{slug}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
     job = db.query(Job).filter(Job.slug == slug, Job.published == True).first()  # noqa: E712
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return job
+    result = JobResponse.model_validate(job)
+    cache.set(cache_key, result)
+    return result
 
 
 @router.get("/{job_id}", response_model=JobResponse)

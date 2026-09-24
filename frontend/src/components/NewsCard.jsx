@@ -52,7 +52,7 @@ function SeedImage({ seed = 'tcm', aspect = '16/10', tag, showArrow = true }) {
   )
 }
 
-function NewsCard({ article, compact }) {
+function NewsCard({ article, compact, priority = false }) {
   const imageUrl = getImageUrl(article.image_url)
   const tags = Array.isArray(article.tags)
     ? article.tags
@@ -84,7 +84,7 @@ function NewsCard({ article, compact }) {
       >
         <div style={{ width: 76, height: 76, flexShrink: 0, borderRadius: 14, overflow: 'hidden' }}>
           {imageUrl
-            ? <img src={imageUrl} alt={article.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ? <img src={imageUrl} alt={article.title} loading="lazy" decoding="async" width={76} height={76} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <SeedImage seed={'tcm' + article.id} aspect="1/1" tag={null} showArrow={false} />
           }
         </div>
@@ -126,7 +126,7 @@ function NewsCard({ article, compact }) {
       }}
     >
       {imageUrl
-        ? <img src={imageUrl} alt={article.title} style={{ width: '100%', aspectRatio: '16/10', objectFit: 'cover' }} />
+        ? <img src={imageUrl} alt={article.title} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" width={800} height={500} style={{ width: '100%', height: 'auto', aspectRatio: '16/10', objectFit: 'cover' }} />
         : <SeedImage seed={'tcm' + article.id} aspect="16/10" tag={tags[0]} />
       }
       <div style={{ padding: 22 }}>
