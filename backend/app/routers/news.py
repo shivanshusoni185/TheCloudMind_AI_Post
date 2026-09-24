@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
-from sqlalchemy.orm import Session, load_only
+from sqlalchemy.orm import Session, load_only, defer
 from sqlalchemy import or_, cast, Text
 
 from ..database import get_db
@@ -26,6 +26,9 @@ _LIST_COLS = [
     News._image_url_legacy,
     News.image_mimetype,
 ]
+
+# Only what an image response needs — skips title/summary/content text.
+_IMAGE_COLS = [News.id, News.image_data, News.image_mimetype, News.image_filename]
 
 _IMAGE_HEADERS = {
     "Cache-Control": "public, max-age=31536000, immutable",
@@ -80,7 +83,12 @@ def list_news(
 # nginx caches the response, so the DB is only hit once per image.
 @router.get("/image/{news_id}")
 def get_news_image(news_id: int, db: Session = Depends(get_db)):
-    news = db.query(News).filter(News.id == news_id).first()
+    news = (
+        db.query(News)
+        .options(load_only(*_IMAGE_COLS))
+        .filter(News.id == news_id)
+        .first()
+    )
     if not news or not news.image_data:
         raise HTTPException(status_code=404, detail="Image not found")
 
@@ -97,7 +105,19 @@ def get_news_image(news_id: int, db: Session = Depends(get_db)):
 # ── Article by slug ───────────────────────────────────────────────
 @router.get("/by-slug/{slug}", response_model=NewsResponse)
 def get_news_by_slug(slug: str, db: Session = Depends(get_db)):
-    news = db.query(News).filter(News.slug == slug, News.published == True).first()  # noqa: E712
+    cache_key = f"news_slug:{slug}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    # defer(): the article page fetches the image separately via image_url,
+    # so don't pull the binary blob across the wire here.
+    news = (
+        db.query(News)
+        .options(defer(News.image_data))
+        .filter(News.slug == slug, News.published == True)  # noqa: E712
+        .first()
+    )
     if not news:
         raise HTTPException(status_code=404, detail="News not found")
 
@@ -106,13 +126,20 @@ def get_news_by_slug(slug: str, db: Session = Depends(get_db)):
     elif news.tags is None:
         news.tags = []
 
-    return news
+    result = NewsResponse.model_validate(news)
+    cache.set(cache_key, result)
+    return result
 
 
 # ── Image by slug ─────────────────────────────────────────────────
 @router.get("/image/by-slug/{slug}")
 def get_news_image_by_slug(slug: str, db: Session = Depends(get_db)):
-    news = db.query(News).filter(News.slug == slug).first()
+    news = (
+        db.query(News)
+        .options(load_only(*_IMAGE_COLS))
+        .filter(News.slug == slug)
+        .first()
+    )
     if not news or not news.image_data:
         raise HTTPException(status_code=404, detail="Image not found")
 
@@ -129,7 +156,14 @@ def get_news_image_by_slug(slug: str, db: Session = Depends(get_db)):
 # ── Article by ID (compat) ────────────────────────────────────────
 @router.get("/{news_id}", response_model=NewsResponse)
 def get_news(news_id: int, db: Session = Depends(get_db)):
-    news = db.query(News).filter(News.id == news_id, News.published == True).first()  # noqa: E712
+    # defer(): the article page fetches the image separately via image_url,
+    # so don't pull the binary blob across the wire here.
+    news = (
+        db.query(News)
+        .options(defer(News.image_data))
+        .filter(News.id == news_id, News.published == True)  # noqa: E712
+        .first()
+    )
     if not news:
         raise HTTPException(status_code=404, detail="News not found")
 

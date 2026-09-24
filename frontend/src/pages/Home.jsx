@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { Loader } from 'lucide-react'
 import NewsCard from '../components/NewsCard'
-import { newsApi } from '../lib/api'
+import { newsApi, getLocalCache, setLocalCache } from '../lib/api'
+
+const NEWS_CACHE_KEY = 'news_all'
 
 function FilterBar({ active, onChange, search, setSearch, onSubmit }) {
   const tabs = [
@@ -65,7 +67,7 @@ function HeroRow({ articles }) {
   if (!featured) return null
   return (
     <section className="hero-row">
-      <NewsCard article={featured} />
+      <NewsCard article={featured} priority />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {rest.slice(0, 3).map(a => <NewsCard key={a.id} article={a} compact />)}
       </div>
@@ -74,8 +76,10 @@ function HeroRow({ articles }) {
 }
 
 function Home() {
-  const [articles, setArticles] = useState([])
-  const [loading, setLoading] = useState(true)
+  // Show the last-seen article list instantly (stale-while-revalidate),
+  // then refresh it from the API in the background.
+  const [articles, setArticles] = useState(() => getLocalCache(NEWS_CACHE_KEY) || [])
+  const [loading, setLoading] = useState(() => !getLocalCache(NEWS_CACHE_KEY))
   const [active, setActive] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -83,10 +87,13 @@ function Home() {
   useEffect(() => { fetchNews() }, [search])
 
   const fetchNews = async () => {
-    setLoading(true)
+    const cached = search ? null : getLocalCache(NEWS_CACHE_KEY)
+    if (cached) setArticles(cached)
+    setLoading(!cached)
     try {
       const response = await newsApi.getAll(search)
       setArticles(response.data)
+      if (!search) setLocalCache(NEWS_CACHE_KEY, response.data)
     } catch (error) {
       console.error('Error fetching news:', error)
     } finally {

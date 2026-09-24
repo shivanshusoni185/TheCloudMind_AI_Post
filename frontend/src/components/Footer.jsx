@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import logo from '../assets/logo.png'
+import logo from '../assets/logo-square.webp'
 
 function Footer() {
   const currentYear = new Date().getFullYear()
@@ -11,9 +11,8 @@ function Footer() {
           {/* Brand */}
           <div>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-              <div style={{ background: '#FFFDF5', padding: '10px 14px', borderRadius: 16, flexShrink: 0 }}>
-                <img src={logo} alt="TheCloudMind.ai" style={{ height: 40, width: 'auto', maxWidth: 130, objectFit: 'contain', display: 'block' }} />
-              </div>
+              <img src={logo} alt="TheCloudMind.ai" width={56} height={56} loading="lazy"
+                style={{ width: 56, height: 56, borderRadius: 16, flexShrink: 0, display: 'block' }} />
               <div>
                 <div style={{ color: '#fff', fontWeight: 700, fontSize: 20, fontFamily: 'var(--font-sans)' }}>
                   TheCloudMind.ai

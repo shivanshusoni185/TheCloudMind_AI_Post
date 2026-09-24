@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Trash2, Loader, Eye, EyeOff, RefreshCw, LogOut, Plus, X, Bot, Image as ImageIcon, Briefcase } from 'lucide-react'
 import { adminApi, getImageUrl } from '../lib/api'
-import logo from '../assets/logo.jpg'
+import logo from '../assets/logo-square.webp'
 
 function AdminDashboard() {
   const navigate = useNavigate()

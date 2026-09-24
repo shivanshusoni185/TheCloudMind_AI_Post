@@ -2,21 +2,28 @@ import { useState, useEffect } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { Loader } from 'lucide-react'
 import NewsCard from '../components/NewsCard'
-import { newsApi } from '../lib/api'
+import { newsApi, getLocalCache, setLocalCache } from '../lib/api'
+
+// Shared with Home — both pages read the same unfiltered article list.
+const NEWS_CACHE_KEY = 'news_all'
+
+function lastSevenDays(list) {
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  return list.filter(a => new Date(a.created_at) >= sevenDaysAgo)
+}
 
 function LatestNews() {
-  const [articles, setArticles] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [articles, setArticles] = useState(() => lastSevenDays(getLocalCache(NEWS_CACHE_KEY) || []))
+  const [loading, setLoading] = useState(() => !getLocalCache(NEWS_CACHE_KEY))
 
   useEffect(() => { fetchLatestNews() }, [])
 
   const fetchLatestNews = async () => {
-    setLoading(true)
     try {
       const response = await newsApi.getAll()
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      setArticles(response.data.filter(a => new Date(a.created_at) >= sevenDaysAgo))
+      setLocalCache(NEWS_CACHE_KEY, response.data)
+      setArticles(lastSevenDays(response.data))
     } catch (error) {
       console.error('Error fetching latest news:', error)
     } finally {

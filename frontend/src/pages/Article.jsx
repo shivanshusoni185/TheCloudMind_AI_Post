@@ -95,7 +95,7 @@ function Article() {
 
         {imageUrl && (
           <div style={{ marginTop: 22, borderRadius: 32, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-card)' }}>
-            <img src={imageUrl} alt={article.title} style={{ width: '100%', display: 'block', aspectRatio: '16/9', objectFit: 'cover' }} />
+            <img src={imageUrl} alt={article.title} fetchPriority="high" decoding="async" width={1200} height={675} style={{ width: '100%', height: 'auto', display: 'block', aspectRatio: '16/9', objectFit: 'cover' }} />
           </div>
         )}
 
