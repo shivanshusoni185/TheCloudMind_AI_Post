@@ -68,7 +68,6 @@ replit.md
 
 # Replit
 .replit
-.vercel
 .env
 .env.local
 .env.production
