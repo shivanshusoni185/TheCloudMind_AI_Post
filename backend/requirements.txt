@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-python-jose[cryptography]
+PyJWT>=2.10.1
 passlib[bcrypt]
 python-multipart
 python-dotenv
