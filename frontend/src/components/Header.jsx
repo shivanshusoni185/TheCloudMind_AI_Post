@@ -40,7 +40,8 @@ function Header() {
           <img
             src={logo}
             alt="TheCloudMind.ai"
-            style={{ height: 46, width: 'auto', maxWidth: 150, objectFit: 'contain', display: 'block' }}
+            width={219} height={46}
+            style={{ height: 46, width: 'auto', maxWidth: '52vw', objectFit: 'contain', display: 'block' }}
           />
           <span className="hidden sm:flex" style={{ alignItems: 'center', gap: 14 }}>
             <span style={{ width: 1, height: 30, background: 'var(--cm-border)' }} />
