@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from .database import engine, Base, db_ping
-from .routers import admin, news, contact, jobs
+from .routers import admin, news, contact, jobs, jev
 from .scheduler import start_scheduler, stop_scheduler
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ app.include_router(admin.router)
 app.include_router(news.router)
 app.include_router(contact.router)
 app.include_router(jobs.router)
+app.include_router(jev.router)
 
 
 @app.get("/")

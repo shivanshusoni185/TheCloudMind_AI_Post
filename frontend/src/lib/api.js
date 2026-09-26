@@ -25,6 +25,9 @@ api.interceptors.request.use((config) => {
 const CACHE_PREFIX = 'tcm_v1_';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+// The old full-archive list (~1 MB) is no longer used — reclaim the space.
+try { localStorage.removeItem(CACHE_PREFIX + 'news_all'); } catch { /* ignore */ }
+
 export function getLocalCache(key) {
   try {
     const raw = localStorage.getItem(CACHE_PREFIX + key);
@@ -63,14 +66,22 @@ async function withRetry(fn) {
 
 // ── Public API ───────────────────────────────────────────────────
 export const newsApi = {
-  getAll: (search = '', tag = '') => {
+  getAll: (search = '', tag = '', { limit, offset, days } = {}) => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (tag) params.append('tag', tag);
+    if (limit) params.append('limit', limit);
+    if (offset) params.append('offset', offset);
+    if (days) params.append('days', days);
     return withRetry(() => api.get(`/news?${params.toString()}`));
   },
   getById: (id) => withRetry(() => api.get(`/news/${id}`)),
   getBySlug: (slug) => withRetry(() => api.get(`/news/by-slug/${slug}`)),
+};
+
+// JEV AI assistant. Not retried: each call hits a paid model.
+export const jevApi = {
+  chat: (messages) => api.post('/jev/chat', { messages }, { timeout: 60000 }),
 };
 
 export const jobsApi = {

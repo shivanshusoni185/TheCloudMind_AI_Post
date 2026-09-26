@@ -4,8 +4,7 @@ import { Loader } from 'lucide-react'
 import NewsCard from '../components/NewsCard'
 import { newsApi, getLocalCache, setLocalCache } from '../lib/api'
 
-// Shared with Home — both pages read the same unfiltered article list.
-const NEWS_CACHE_KEY = 'news_all'
+const NEWS_CACHE_KEY = 'news_last7'
 
 function lastSevenDays(list) {
   const sevenDaysAgo = new Date()
@@ -21,7 +20,8 @@ function LatestNews() {
 
   const fetchLatestNews = async () => {
     try {
-      const response = await newsApi.getAll()
+      // Ask the API for the last 7 days only instead of the whole archive.
+      const response = await newsApi.getAll('', '', { days: 7 })
       setLocalCache(NEWS_CACHE_KEY, response.data)
       setArticles(lastSevenDays(response.data))
     } catch (error) {
