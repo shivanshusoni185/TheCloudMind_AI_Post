@@ -111,7 +111,9 @@ def _retrieve(db: Session, question: str):
         ]))
     articles = article_q.order_by(News.created_at.desc()).limit(40).all()
     articles.sort(key=lambda a: _score(f"{a.title} {a.summary}", words), reverse=True)
-    articles = articles[:MAX_ARTICLES]
+    # For job questions the listings are the answer; keep only a couple of
+    # articles for background.
+    articles = articles[:2 if wants_jobs else MAX_ARTICLES]
 
     jobs = []
     if wants_jobs:
@@ -163,8 +165,8 @@ def _search_only_answer(articles, jobs) -> str:
         return ("I couldn't find anything on TheCloudMind about that yet. "
                 "Try different keywords, or browse the latest stories on the home page.")
     lines = ["Here's what I found on TheCloudMind:"]
-    lines += [f"- **{a.title}** — {a.summary}" for a in articles]
     lines += [f"- **{j.title}** at {j.company}" for j in jobs]
+    lines += [f"- **{a.title}** — {a.summary}" for a in articles]
     return "\n".join(lines)
 
 
@@ -204,8 +206,8 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
     question = history[-1].content[:MAX_MESSAGE_CHARS]
     articles, jobs = _retrieve(db, question)
     sources = (
-        [Source(type="article", title=a.title, path=_article_path(a)) for a in articles if a.slug]
-        + [Source(type="job", title=f"{j.title} — {j.company}", path=_job_path(j)) for j in jobs if j.slug]
+        [Source(type="job", title=f"{j.title} — {j.company}", path=_job_path(j)) for j in jobs if j.slug]
+        + [Source(type="article", title=a.title, path=_article_path(a)) for a in articles if a.slug]
     )
 
     if _client is None:
