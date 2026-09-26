@@ -302,3 +302,10 @@ body {
   color: var(--fg5);
   margin-bottom: 0.4em;
 }
+
+/* JEV AI answer bubbles (rendered Markdown) */
+.jev-answer p { margin: 0 0 8px; }
+.jev-answer p:last-child, .jev-answer ul:last-child, .jev-answer ol:last-child { margin-bottom: 0; }
+.jev-answer ul, .jev-answer ol { margin: 0 0 8px; padding-left: 18px; }
+.jev-answer li { margin: 2px 0; }
+.jev-answer a { color: var(--cm-accent); text-decoration: underline; }

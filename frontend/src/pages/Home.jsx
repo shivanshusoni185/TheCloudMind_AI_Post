@@ -4,7 +4,7 @@ import { Loader } from 'lucide-react'
 import NewsCard from '../components/NewsCard'
 import { newsApi, getLocalCache, setLocalCache } from '../lib/api'
 
-const NEWS_CACHE_KEY = 'news_all'
+const NEWS_CACHE_KEY = 'news_home'
 
 function FilterBar({ active, onChange, search, setSearch, onSubmit }) {
   const tabs = [
@@ -75,25 +75,34 @@ function HeroRow({ articles }) {
   )
 }
 
+// The API returns newest first; fetch a page at a time instead of the whole
+// archive (~1,200 articles, ~1 MB of JSON).
+const PAGE_SIZE = 24
+
 function Home() {
-  // Show the last-seen article list instantly (stale-while-revalidate),
+  // Show the last-seen first page instantly (stale-while-revalidate),
   // then refresh it from the API in the background.
-  const [articles, setArticles] = useState(() => getLocalCache(NEWS_CACHE_KEY) || [])
-  const [loading, setLoading] = useState(() => !getLocalCache(NEWS_CACHE_KEY))
+  const [articles, setArticles] = useState(() => getLocalCache(`${NEWS_CACHE_KEY}:`) || [])
+  const [loading, setLoading] = useState(() => !getLocalCache(`${NEWS_CACHE_KEY}:`))
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const [active, setActive] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
 
-  useEffect(() => { fetchNews() }, [search])
+  useEffect(() => { fetchNews() }, [search, active])
+
+  const cacheKey = search ? null : `${NEWS_CACHE_KEY}:${active}`
 
   const fetchNews = async () => {
-    const cached = search ? null : getLocalCache(NEWS_CACHE_KEY)
-    if (cached) setArticles(cached)
+    const cached = cacheKey ? getLocalCache(cacheKey) : null
+    setArticles(cached || [])
     setLoading(!cached)
     try {
-      const response = await newsApi.getAll(search)
+      const response = await newsApi.getAll(search, active, { limit: PAGE_SIZE })
       setArticles(response.data)
-      if (!search) setLocalCache(NEWS_CACHE_KEY, response.data)
+      setHasMore(response.data.length === PAGE_SIZE)
+      if (cacheKey) setLocalCache(cacheKey, response.data)
     } catch (error) {
       console.error('Error fetching news:', error)
     } finally {
@@ -101,11 +110,19 @@ function Home() {
     }
   }
 
-  const filtered = articles.filter(a => {
-    if (!active) return true
-    const tags = Array.isArray(a.tags) ? a.tags : (a.tags ? a.tags.split(',').map(t => t.trim()) : [])
-    return tags.some(t => t.toLowerCase() === active.toLowerCase())
-  })
+  const loadMore = async () => {
+    setLoadingMore(true)
+    try {
+      const response = await newsApi.getAll(search, active, { limit: PAGE_SIZE, offset: articles.length })
+      const seen = new Set(articles.map(a => a.id))
+      setArticles([...articles, ...response.data.filter(a => !seen.has(a.id))])
+      setHasMore(response.data.length === PAGE_SIZE)
+    } catch (error) {
+      console.error('Error loading more news:', error)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const headingMap = {
     AI: 'AI coverage — analysis and developments',
@@ -147,7 +164,7 @@ function Home() {
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '80px 0' }}>
             <Loader size={32} className="animate-spin" style={{ color: 'var(--cm-accent)' }} />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : articles.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 0' }}>
             <p style={{ color: 'var(--fg4)', fontSize: 18 }}>No articles found</p>
             {(search || active) && (
@@ -160,11 +177,11 @@ function Home() {
             )}
           </div>
         ) : (
-          <HeroRow articles={filtered} />
+          <HeroRow articles={articles} />
         )}
       </div>
 
-      {!loading && filtered.length > 4 && (
+      {!loading && articles.length > 4 && (
         <div style={{ background: 'var(--cm-section)', borderTop: '1px solid var(--cm-border)', borderBottom: '1px solid var(--cm-border)', padding: '56px 0' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
             <div className="eyebrow" style={{ marginBottom: 6 }}>MORE COVERAGE</div>
@@ -172,8 +189,22 @@ function Home() {
               Fresh analysis across AI and technology
             </h2>
             <div className="coverage-grid">
-              {filtered.slice(4).map(a => <NewsCard key={a.id} article={a} />)}
+              {articles.slice(4).map(a => <NewsCard key={a.id} article={a} />)}
             </div>
+            {hasMore && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 32 }}>
+                <button onClick={loadMore} disabled={loadingMore} style={{
+                  display: 'inline-flex', gap: 8, alignItems: 'center',
+                  padding: '12px 28px', background: 'var(--bg5)', color: '#fff',
+                  border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600,
+                  cursor: loadingMore ? 'default' : 'pointer', fontFamily: 'inherit',
+                  opacity: loadingMore ? 0.7 : 1,
+                }}>
+                  {loadingMore && <Loader size={16} className="animate-spin" />}
+                  {loadingMore ? 'Loading…' : 'Load more stories'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

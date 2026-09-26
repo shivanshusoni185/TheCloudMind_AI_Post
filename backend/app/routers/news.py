@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
@@ -42,9 +43,14 @@ _IMAGE_HEADERS = {
 def list_news(
     search: Optional[str] = Query(None),
     tag: Optional[str] = Query(None),
+    limit: Optional[int] = Query(None, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    days: Optional[int] = Query(None, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
-    cache_key = f"news_list:{search or ''}:{tag or ''}"
+    # limit is optional so existing callers (MCP server) still get the full
+    # list; the site pages request small pages — the full list is ~1 MB.
+    cache_key = f"news_list:{search or ''}:{tag or ''}:{limit}:{offset}:{days}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -62,10 +68,20 @@ def list_news(
         )
 
     if tag:
-        # tags is a JSON column — cast to text before ILIKE
-        query = query.filter(cast(News.tags, Text).ilike(f"%{tag}%"))
+        # tags is a JSON column — cast to text and match the quoted element,
+        # so "AI" matches the tag "AI" but not "Email" or "Tailored".
+        query = query.filter(cast(News.tags, Text).ilike(f'%"{tag}"%'))
 
-    rows = query.order_by(News.created_at.desc()).all()
+    if days:
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+        query = query.filter(News.created_at >= since)
+
+    query = query.order_by(News.created_at.desc(), News.id.desc())
+    if offset:
+        query = query.offset(offset)
+    if limit:
+        query = query.limit(limit)
+    rows = query.all()
 
     for item in rows:
         if isinstance(item.tags, str):
