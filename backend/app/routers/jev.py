@@ -2,9 +2,10 @@
 JEV AI — the site's assistant.
 
 Answers visitor questions grounded in TheCloudMind's own published articles
-and job listings: relevant rows are retrieved from the DB and handed to
-Claude as context. Without ANTHROPIC_API_KEY it still works in search-only
-mode and returns the matching articles/jobs as links.
+and job listings: relevant rows are retrieved from the DB and handed to an
+LLM as context — Claude when ANTHROPIC_API_KEY is set, otherwise OpenAI when
+OPENAI_API_KEY is set. With neither it still works in search-only mode and
+returns the matching articles/jobs as links.
 """
 
 import logging
@@ -13,6 +14,7 @@ import re
 from typing import Literal, Optional
 
 import anthropic
+import requests
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import or_
@@ -34,6 +36,15 @@ MAX_JOBS = 4
 _client: Optional[anthropic.Anthropic] = None
 if os.getenv("ANTHROPIC_API_KEY", "").strip():
     _client = anthropic.Anthropic(timeout=45.0, max_retries=1)
+
+# Same env vars as agents/auto_publish.py.
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+OPENAI_MODEL = os.getenv("JEV_OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
+OPENAI_CHAT_COMPLETIONS_URL = os.getenv(
+    "OPENAI_CHAT_COMPLETIONS_URL", "https://api.openai.com/v1/chat/completions"
+)
+
+PROVIDER = "claude" if _client else ("openai" if OPENAI_API_KEY else None)
 
 SYSTEM_PROMPT = """You are JEV AI, the assistant on TheCloudMind.ai (cloudmindai.in) — a news site covering AI, technology and cricket/IPL, with a tech jobs board.
 
@@ -170,13 +181,35 @@ def _search_only_answer(articles, jobs) -> str:
     return "\n".join(lines)
 
 
-def _ask_claude(history: list[ChatMessage], context: str) -> str:
+def _build_messages(history: list[ChatMessage], context: str) -> list[dict]:
     messages = [{"role": m.role, "content": m.content[:MAX_MESSAGE_CHARS]} for m in history]
     # Attach the retrieved context to the latest question only, so earlier
     # turns stay byte-identical across requests.
     messages[-1]["content"] = (
         f"<site_context>\n{context}\n</site_context>\n\nQuestion: {messages[-1]['content']}"
     )
+    return messages
+
+
+def _ask_openai(history: list[ChatMessage], context: str) -> str:
+    response = requests.post(
+        OPENAI_CHAT_COMPLETIONS_URL,
+        headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+        json={
+            "model": OPENAI_MODEL,
+            "temperature": 0.4,
+            "max_tokens": 800,
+            "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + _build_messages(history, context),
+        },
+        timeout=45,
+    )
+    response.raise_for_status()
+    text = (response.json()["choices"][0]["message"]["content"] or "").strip()
+    return text or "Sorry, I couldn't come up with an answer. Please try rephrasing."
+
+
+def _ask_claude(history: list[ChatMessage], context: str) -> str:
+    messages = _build_messages(history, context)
     response = _client.beta.messages.create(
         model=JEV_MODEL,
         max_tokens=2048,
@@ -210,11 +243,17 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
         + [Source(type="article", title=a.title, path=_article_path(a)) for a in articles if a.slug]
     )
 
-    if _client is None:
+    if PROVIDER is None:
         return ChatResponse(answer=_search_only_answer(articles, jobs), sources=sources, mode="search")
 
     try:
-        answer = _ask_claude(history, _context_block(articles, jobs))
+        ask = _ask_claude if PROVIDER == "claude" else _ask_openai
+        answer = ask(history, _context_block(articles, jobs))
+    except requests.RequestException as exc:
+        status = getattr(exc.response, "status_code", None)
+        logger.error("JEV AI OpenAI error %s: %s", status, exc)
+        busy = "JEV AI is busy right now. " if status == 429 else ""
+        return ChatResponse(answer=busy + _search_only_answer(articles, jobs), sources=sources, mode="search")
     except anthropic.RateLimitError:
         logger.warning("JEV AI rate limited")
         return ChatResponse(answer="JEV AI is busy right now. " + _search_only_answer(articles, jobs),
@@ -231,4 +270,4 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
 
 @router.get("/status")
 def status():
-    return {"name": "JEV AI", "mode": "ai" if _client else "search"}
+    return {"name": "JEV AI", "mode": "ai" if PROVIDER else "search", "provider": PROVIDER}
