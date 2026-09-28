@@ -1,5 +1,5 @@
 """
-JEV AI — the site's assistant.
+CloudMind AI — the site's assistant.
 
 Answers visitor questions grounded in TheCloudMind's own published articles
 and job listings: relevant rows are retrieved from the DB and handed to an
@@ -46,7 +46,7 @@ OPENAI_CHAT_COMPLETIONS_URL = os.getenv(
 
 PROVIDER = "claude" if _client else ("openai" if OPENAI_API_KEY else None)
 
-SYSTEM_PROMPT = """You are JEV AI, the assistant on TheCloudMind.ai (cloudmindai.in) — a news site covering AI, technology and cricket/IPL, with a tech jobs board.
+SYSTEM_PROMPT = """You are CloudMind AI, the assistant on TheCloudMind.ai (cloudmindai.in) — a news site covering AI, technology and cricket/IPL, with a tech jobs board.
 
 Answer the visitor's question helpfully and concisely (usually 2-5 short paragraphs or a short list). Latency-sensitive; begin your visible answer immediately.
 
@@ -251,18 +251,18 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
         answer = ask(history, _context_block(articles, jobs))
     except requests.RequestException as exc:
         status = getattr(exc.response, "status_code", None)
-        logger.error("JEV AI OpenAI error %s: %s", status, exc)
-        busy = "JEV AI is busy right now. " if status == 429 else ""
+        logger.error("CloudMind AI OpenAI error %s: %s", status, exc)
+        busy = "CloudMind AI is busy right now. " if status == 429 else ""
         return ChatResponse(answer=busy + _search_only_answer(articles, jobs), sources=sources, mode="search")
     except anthropic.RateLimitError:
-        logger.warning("JEV AI rate limited")
-        return ChatResponse(answer="JEV AI is busy right now. " + _search_only_answer(articles, jobs),
+        logger.warning("CloudMind AI rate limited")
+        return ChatResponse(answer="CloudMind AI is busy right now. " + _search_only_answer(articles, jobs),
                             sources=sources, mode="search")
     except anthropic.APIStatusError as exc:
-        logger.error("JEV AI API error %s: %s", exc.status_code, exc.message)
+        logger.error("CloudMind AI API error %s: %s", exc.status_code, exc.message)
         return ChatResponse(answer=_search_only_answer(articles, jobs), sources=sources, mode="search")
     except anthropic.APIConnectionError as exc:
-        logger.error("JEV AI connection error: %s", exc)
+        logger.error("CloudMind AI connection error: %s", exc)
         return ChatResponse(answer=_search_only_answer(articles, jobs), sources=sources, mode="search")
 
     return ChatResponse(answer=answer, sources=sources, mode="ai")
@@ -270,4 +270,4 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
 
 @router.get("/status")
 def status():
-    return {"name": "JEV AI", "mode": "ai" if PROVIDER else "search", "provider": PROVIDER}
+    return {"name": "CloudMind AI", "mode": "ai" if PROVIDER else "search", "provider": PROVIDER}
