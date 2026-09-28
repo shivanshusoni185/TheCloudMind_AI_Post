@@ -46,7 +46,7 @@ function Sources({ sources, onNavigate }) {
   )
 }
 
-// JEV AI chat panel. Lazy-loaded by ChatWidget on first open so the
+// CloudMind AI chat panel. Lazy-loaded by ChatWidget on first open so the
 // markdown renderer and this UI stay out of the initial page bundle.
 function JevPanel({ onClose }) {
   const [messages, setMessages] = useState(loadHistory)
@@ -75,7 +75,7 @@ function JevPanel({ onClose }) {
     } catch (err) {
       const msg = err.response?.status === 429
         ? "You're asking faster than I can keep up — please wait a moment and try again."
-        : "Sorry, I couldn't reach JEV AI right now. Please try again."
+        : "Sorry, I couldn't reach CloudMind AI right now. Please try again."
       // Flagged as error so it's never sent back to the API as history.
       setMessages([...next, { role: 'assistant', content: msg, error: true }])
     } finally {
@@ -84,7 +84,7 @@ function JevPanel({ onClose }) {
   }
 
   return (
-    <div role="dialog" aria-label="JEV AI assistant" className="jev-panel" style={{
+    <div role="dialog" aria-label="CloudMind AI assistant" className="jev-panel" style={{
       position: 'fixed', bottom: 92, right: 24, zIndex: 60,
       width: 380, maxWidth: 'calc(100vw - 32px)', height: 560, maxHeight: 'calc(100vh - 120px)',
       background: 'var(--cm-card)', border: '1px solid var(--cm-border)', borderRadius: 20,
@@ -95,7 +95,7 @@ function JevPanel({ onClose }) {
           <Sparkles size={17} />
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>JEV AI</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>CloudMind AI</div>
           <div style={{ fontSize: 11.5, opacity: .75 }}>Ask about AI, tech, cricket or jobs</div>
         </div>
         {messages.length > 0 && (
@@ -103,7 +103,7 @@ function JevPanel({ onClose }) {
             Clear
           </button>
         )}
-        <button onClick={onClose} aria-label="Close JEV AI" style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex' }}>
+        <button onClick={onClose} aria-label="Close CloudMind AI" style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex' }}>
           <X size={20} />
         </button>
       </div>
@@ -111,7 +111,7 @@ function JevPanel({ onClose }) {
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         {messages.length === 0 && (
           <div style={{ color: 'var(--fg4)', fontSize: 14, lineHeight: 1.55 }}>
-            <p style={{ margin: '0 0 12px' }}>Hi! I'm <strong style={{ color: 'var(--fg1)' }}>JEV AI</strong>. I can answer questions using TheCloudMind's latest stories and job listings.</p>
+            <p style={{ margin: '0 0 12px' }}>Hi! I'm <strong style={{ color: 'var(--fg1)' }}>CloudMind AI</strong>. I can answer questions using TheCloudMind's latest stories and job listings.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {SUGGESTIONS.map(s => (
                 <button key={s} onClick={() => ask(s)} style={{
@@ -139,7 +139,7 @@ function JevPanel({ onClose }) {
         ))}
         {sending && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: 'var(--fg4)', fontSize: 13 }}>
-            <Loader size={15} className="animate-spin" /> JEV AI is thinking…
+            <Loader size={15} className="animate-spin" /> CloudMind AI is thinking…
           </div>
         )}
       </div>
@@ -150,8 +150,8 @@ function JevPanel({ onClose }) {
           value={input}
           onChange={e => setInput(e.target.value)}
           maxLength={1500}
-          placeholder="Ask JEV AI…"
-          aria-label="Message JEV AI"
+          placeholder="Ask CloudMind AI…"
+          aria-label="Message CloudMind AI"
           style={{ flex: 1, border: '1px solid #e2e8f0', background: '#fff', borderRadius: 12, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', outline: 'none', minWidth: 0 }}
         />
         <button type="submit" disabled={sending || !input.trim()} aria-label="Send" style={{

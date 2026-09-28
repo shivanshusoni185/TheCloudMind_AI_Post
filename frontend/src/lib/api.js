@@ -79,7 +79,7 @@ export const newsApi = {
   getBySlug: (slug) => withRetry(() => api.get(`/news/by-slug/${slug}`)),
 };
 
-// JEV AI assistant. Not retried: each call hits a paid model.
+// CloudMind AI assistant. Not retried: each call hits a paid model.
 export const jevApi = {
   chat: (messages) => api.post('/jev/chat', { messages }, { timeout: 60000 }),
 };
