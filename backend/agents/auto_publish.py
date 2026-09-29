@@ -41,11 +41,11 @@ PLACEHOLDER_IMAGE_HOSTS = {
     "lh6.googleusercontent.com",
     "www.gstatic.com",
 }
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-OPENAI_CHAT_COMPLETIONS_URL = os.getenv(
-    "OPENAI_CHAT_COMPLETIONS_URL",
-    "https://api.openai.com/v1/chat/completions",
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "").strip()
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "deepseek-ai/deepseek-v4.1-flash").strip() or "deepseek-ai/deepseek-v4.1-flash"
+NVIDIA_CHAT_COMPLETIONS_URL = os.getenv(
+    "NVIDIA_CHAT_COMPLETIONS_URL",
+    "https://integrate.api.nvidia.com/v1/chat/completions",
 ).strip()
 SOURCE_NAME_MAP = {
     "techcrunch.com": "TechCrunch",
@@ -707,8 +707,8 @@ def _generate_story_draft(
     source_summary: str,
     article_text: str,
 ) -> StoryDraft:
-    if not OPENAI_API_KEY:
-        logger.warning("OPENAI_API_KEY is missing; using fallback story draft for %s", source_url)
+    if not NVIDIA_API_KEY:
+        logger.warning("NVIDIA_API_KEY is missing; using fallback story draft for %s", source_url)
         return _fallback_story_draft(
             topic=topic,
             source_name=source_name,
@@ -776,7 +776,7 @@ Source excerpt:
 """.strip()
 
     payload = {
-        "model": OPENAI_MODEL,
+        "model": NVIDIA_MODEL,
         "temperature": 0.4,
         "response_format": {"type": "json_object"},
         "messages": [
@@ -788,15 +788,19 @@ Source excerpt:
     try:
         response = _request_with_retries(
             "POST",
-            OPENAI_CHAT_COMPLETIONS_URL,
+            NVIDIA_CHAT_COMPLETIONS_URL,
             headers={
-                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Authorization": f"Bearer {NVIDIA_API_KEY}",
                 "Content-Type": "application/json",
             },
             json=payload,
         )
         data = response.json()
-        raw_content = data["choices"][0]["message"]["content"]
+        message = data["choices"][0]["message"]
+        # deepseek-v4.1-flash (a reasoning model) puts the actual JSON answer
+        # in reasoning_content and leaves content null when response_format
+        # is json_object — fall back to it so we don't lose real output.
+        raw_content = message.get("content") or message.get("reasoning_content")
         parsed = json.loads(raw_content)
         title = _clean_title(parsed.get("title") or source_title)
         summary = _clean_text(parsed.get("summary") or source_summary)[:280]

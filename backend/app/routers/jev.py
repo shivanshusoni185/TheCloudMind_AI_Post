@@ -3,9 +3,9 @@ CloudMind AI — the site's assistant.
 
 Answers visitor questions grounded in TheCloudMind's own published articles
 and job listings: relevant rows are retrieved from the DB and handed to an
-LLM as context — Claude when ANTHROPIC_API_KEY is set, otherwise OpenAI when
-OPENAI_API_KEY is set. With neither it still works in search-only mode and
-returns the matching articles/jobs as links.
+LLM as context — Claude when ANTHROPIC_API_KEY is set, otherwise NVIDIA
+(NIM, OpenAI-compatible) when NVIDIA_API_KEY is set. With neither it still
+works in search-only mode and returns the matching articles/jobs as links.
 """
 
 import logging
@@ -38,13 +38,15 @@ if os.getenv("ANTHROPIC_API_KEY", "").strip():
     _client = anthropic.Anthropic(timeout=45.0, max_retries=1)
 
 # Same env vars as agents/auto_publish.py.
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_MODEL = os.getenv("JEV_OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
-OPENAI_CHAT_COMPLETIONS_URL = os.getenv(
-    "OPENAI_CHAT_COMPLETIONS_URL", "https://api.openai.com/v1/chat/completions"
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "").strip()
+NVIDIA_MODEL = os.getenv(
+    "JEV_NVIDIA_MODEL", os.getenv("NVIDIA_MODEL", "deepseek-ai/deepseek-v4.1-flash")
+).strip() or "deepseek-ai/deepseek-v4.1-flash"
+NVIDIA_CHAT_COMPLETIONS_URL = os.getenv(
+    "NVIDIA_CHAT_COMPLETIONS_URL", "https://integrate.api.nvidia.com/v1/chat/completions"
 )
 
-PROVIDER = "claude" if _client else ("openai" if OPENAI_API_KEY else None)
+PROVIDER = "claude" if _client else ("nvidia" if NVIDIA_API_KEY else None)
 
 SYSTEM_PROMPT = """You are CloudMind AI, the assistant on TheCloudMind.ai (cloudmindai.in) — a news site covering AI, technology, financial news and cricket, with a tech jobs board.
 
@@ -191,20 +193,32 @@ def _build_messages(history: list[ChatMessage], context: str) -> list[dict]:
     return messages
 
 
-def _ask_openai(history: list[ChatMessage], context: str) -> str:
+def _ask_nvidia(history: list[ChatMessage], context: str) -> str:
     response = requests.post(
-        OPENAI_CHAT_COMPLETIONS_URL,
-        headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+        NVIDIA_CHAT_COMPLETIONS_URL,
+        headers={"Authorization": f"Bearer {NVIDIA_API_KEY}", "Content-Type": "application/json"},
         json={
-            "model": OPENAI_MODEL,
+            "model": NVIDIA_MODEL,
             "temperature": 0.4,
-            "max_tokens": 800,
+            # NVIDIA_MODEL defaults to deepseek-v4.1-flash, a reasoning model
+            # that spends part of its budget on reasoning_content before the
+            # final answer — give it enough headroom to actually finish.
+            "max_tokens": 1500,
             "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + _build_messages(history, context),
         },
         timeout=45,
     )
     response.raise_for_status()
-    text = (response.json()["choices"][0]["message"]["content"] or "").strip()
+    choice = response.json()["choices"][0]
+    message = choice["message"]
+    # Only fall back to reasoning_content when the model actually finished
+    # (stop) but left content null (seen with some reasoning models) — never
+    # on a truncated ("length") response, where reasoning_content would be
+    # incomplete chain-of-thought rather than a real answer.
+    text = message.get("content")
+    if not text and choice.get("finish_reason") == "stop":
+        text = message.get("reasoning_content")
+    text = (text or "").strip()
     return text or "Sorry, I couldn't come up with an answer. Please try rephrasing."
 
 
@@ -247,11 +261,11 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
         return ChatResponse(answer=_search_only_answer(articles, jobs), sources=sources, mode="search")
 
     try:
-        ask = _ask_claude if PROVIDER == "claude" else _ask_openai
+        ask = _ask_claude if PROVIDER == "claude" else _ask_nvidia
         answer = ask(history, _context_block(articles, jobs))
     except requests.RequestException as exc:
         status = getattr(exc.response, "status_code", None)
-        logger.error("CloudMind AI OpenAI error %s: %s", status, exc)
+        logger.error("CloudMind AI NVIDIA error %s: %s", status, exc)
         busy = "CloudMind AI is busy right now. " if status == 429 else ""
         return ChatResponse(answer=busy + _search_only_answer(articles, jobs), sources=sources, mode="search")
     except anthropic.RateLimitError:

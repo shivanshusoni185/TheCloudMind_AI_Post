@@ -37,8 +37,8 @@ from app.database import SessionLocal
 from app.models import News, generate_slug
 from .auto_publish import (
     StoryDraft,
-    OPENAI_API_KEY,
-    OPENAI_MODEL,
+    NVIDIA_API_KEY,
+    NVIDIA_MODEL,
     _download_image,
     _fetch_article_assets,
     _fetch_wikipedia_image,
@@ -240,10 +240,17 @@ class NewsDiscoveryAgent:
 # Phase 2 – CrewAI crew: ContentWriter + ImageResearcher
 # ──────────────────────────────────────────────────────────────────────────────
 
+NVIDIA_BASE_URL = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1").strip()
+
+
 def _build_llm() -> LLM:
+    # NVIDIA's endpoint is OpenAI-compatible, so the "openai/" litellm
+    # provider prefix works as long as base_url points at NVIDIA instead
+    # of the default api.openai.com host.
     return LLM(
-        model=f"openai/{OPENAI_MODEL}",
-        api_key=OPENAI_API_KEY,
+        model=f"openai/{NVIDIA_MODEL}",
+        api_key=NVIDIA_API_KEY,
+        base_url=NVIDIA_BASE_URL,
         temperature=0.5,
     )
 
@@ -433,8 +440,8 @@ class AgentOrchestrator:
     """
 
     def run(self, max_per_topic: int = 5) -> dict[str, int]:
-        if not OPENAI_API_KEY:
-            logger.error("[Orchestrator] OPENAI_API_KEY not set — aborting.")
+        if not NVIDIA_API_KEY:
+            logger.error("[Orchestrator] NVIDIA_API_KEY not set — aborting.")
             return {"discovered": 0, "published": 0, "skipped": 0, "failed": 0}
 
         stats: dict[str, int] = {
