@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { createRequestDeduper } from './requestDeduper';
 
 // Dev: Vite proxies /api → http://localhost:8000
 // Prod: Nginx proxies /api → backend:8000 (no env var needed)
@@ -65,6 +66,9 @@ async function withRetry(fn) {
 }
 
 // ── Public API ───────────────────────────────────────────────────
+const shareNewsRequest = createRequestDeduper();
+const readNews = (path) => shareNewsRequest(path, () => withRetry(() => api.get(path)));
+
 export const newsApi = {
   getAll: (search = '', tag = '', { limit, offset, days } = {}) => {
     const params = new URLSearchParams();
@@ -73,10 +77,10 @@ export const newsApi = {
     if (limit) params.append('limit', limit);
     if (offset) params.append('offset', offset);
     if (days) params.append('days', days);
-    return withRetry(() => api.get(`/news?${params.toString()}`));
+    return readNews(`/news?${params.toString()}`);
   },
-  getById: (id) => withRetry(() => api.get(`/news/${id}`)),
-  getBySlug: (slug) => withRetry(() => api.get(`/news/by-slug/${slug}`)),
+  getById: (id) => readNews(`/news/${id}`),
+  getBySlug: (slug) => readNews(`/news/by-slug/${slug}`),
 };
 
 // CloudMind AI assistant. Not retried: each call hits a paid model.

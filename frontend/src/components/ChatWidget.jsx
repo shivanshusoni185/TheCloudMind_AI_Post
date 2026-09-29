@@ -20,6 +20,7 @@ function ChatWidget() {
         </Suspense>
       )}
       <button
+        className="chat-launcher"
         onClick={() => setOpen(o => !o)}
         aria-label={open ? 'Close CloudMind AI' : 'Ask CloudMind AI'}
         aria-expanded={open}
@@ -35,7 +36,7 @@ function ChatWidget() {
         onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.04)' }}
         onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
       >
-        {open ? <X size={24} /> : <><Sparkles size={20} /> CloudMind AI</>}
+        {open ? <X size={24} /> : <><Sparkles size={20} /><span className="chat-launcher-label">CloudMind AI</span></>}
       </button>
     </>
   )

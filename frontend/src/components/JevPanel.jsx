@@ -8,7 +8,7 @@ const STORAGE_KEY = 'tcm_jev_chat'
 const SUGGESTIONS = [
   "What's the latest in AI?",
   'Any remote software jobs?',
-  'Latest cricket and IPL updates',
+  'What’s new in financial news?',
 ]
 
 function loadHistory() {

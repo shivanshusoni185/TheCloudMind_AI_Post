@@ -1,214 +1,35 @@
-import { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { LogOut, Settings, Menu, X } from 'lucide-react'
-import logo from '../assets/logo.webp'
+﻿import { useState } from 'react'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { ArrowUpRight, Menu, X, LogOut } from 'lucide-react'
+import logo from '../assets/logo-square.webp'
 
-const NAV_LINKS = [
-  { to: '/', label: 'Home' },
-  { to: '/latest-news', label: 'Latest' },
-  { to: '/jobs', label: 'Jobs' },
-  { to: '/about', label: 'About' },
-  { to: '/contact', label: 'Contact' },
-]
+const links = [['/', 'Home'], ['/latest-news', 'The Latest'], ['/jobs', 'Careers'], ['/about', 'About us']]
 
-function Header() {
+export default function Header() {
+  const [open, setOpen] = useState(false)
   const navigate = useNavigate()
-  const { pathname } = useLocation()
   const token = localStorage.getItem('token')
-  const [mobileOpen, setMobileOpen] = useState(false)
-
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    setMobileOpen(false)
-    navigate('/')
-  }
-
-  const closeMobile = () => setMobileOpen(false)
-
+  const close = () => setOpen(false)
   return (
-    <header style={{
-      position: 'sticky', top: 0, zIndex: 40,
-      background: 'rgba(255,255,255,.80)',
-      borderBottom: '1px solid rgba(255,255,255,.6)',
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
-    }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px' }}>
-
-        {/* Logo + tagline */}
-        <Link to="/" onClick={closeMobile} style={{ display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none' }}>
-          <img
-            src={logo}
-            alt="TheCloudMind.ai"
-            width={219} height={46}
-            style={{ height: 46, width: 'auto', maxWidth: '52vw', objectFit: 'contain', display: 'block' }}
-          />
-          <span className="hidden sm:flex" style={{ alignItems: 'center', gap: 14 }}>
-            <span style={{ width: 1, height: 30, background: 'var(--cm-border)' }} />
-            <span style={{
-              fontSize: 10.5, fontWeight: 600, letterSpacing: '.2em', lineHeight: 1.35,
-              textTransform: 'uppercase', color: 'var(--fg5)', fontFamily: 'var(--font-sans)',
-            }}>
-              AI and Sports<br />Intelligence
-            </span>
-          </span>
+    <header className="site-header">
+      <a className="skip-link" href="#main-content">Skip to content</a>
+      <div className="site-width header-inner">
+        <Link to="/" className="brand" onClick={close} aria-label="TheCloudMind.ai home">
+          <img className="brand-logo" src={logo} alt="" width={44} height={44} />
+          <span>TheCloudMind<span className="brand-ai">.ai</span><small>A WORLD OF WHAT'S NEXT</small></span>
         </Link>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex" style={{ gap: 26, alignItems: 'center' }}>
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              style={{
-                fontSize: 14, fontWeight: 500,
-                color: pathname === link.to ? 'var(--fg1)' : 'var(--fg3)',
-                textDecoration: 'none',
-                borderBottom: pathname === link.to ? '2px solid var(--cm-accent)' : '2px solid transparent',
-                paddingBottom: 2,
-                transition: 'color .15s',
-              }}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <a
-            href="https://www.youtube.com/@CloudMindAI"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: 'var(--fg5)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}
-          >
-            YouTube
-          </a>
-          <a
-            href="https://www.instagram.com/thecloudmind.ai/"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: 'var(--fg5)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}
-          >
-            Instagram
-          </a>
-          {token && (
-            <>
-              <Link
-                to="/admin"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '8px 16px', background: 'var(--bg5)', color: '#fff',
-                  borderRadius: 'var(--radius-pill)', fontSize: 13, fontWeight: 600,
-                  textDecoration: 'none',
-                }}
-              >
-                <Settings size={14} /> Dashboard
-              </Link>
-              <button
-                onClick={handleLogout}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '8px 16px', background: 'var(--danger-bg)',
-                  color: 'var(--danger)', border: '1px solid var(--danger-border)',
-                  borderRadius: 'var(--radius-pill)', fontSize: 13, fontWeight: 600,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                <LogOut size={14} /> Logout
-              </button>
-            </>
-          )}
+        <nav className="desktop-nav" aria-label="Main navigation">
+          {links.map(([to, label]) => <NavLink key={to} to={to} end={to === '/'}>{label}</NavLink>)}
         </nav>
-
-        {/* Mobile Hamburger */}
-        <button
-          type="button"
-          onClick={() => setMobileOpen((prev) => !prev)}
-          className="md:hidden"
-          style={{
-            padding: 8, borderRadius: 10,
-            border: '1px solid var(--cm-border)',
-            color: 'var(--fg3)', background: 'transparent', cursor: 'pointer',
-          }}
-          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-        >
-          {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-
-      {/* Mobile Dropdown */}
-      {mobileOpen && (
-        <div
-          className="md:hidden"
-          style={{
-            borderTop: '1px solid var(--cm-border)',
-            background: 'rgba(255,253,245,.96)',
-            backdropFilter: 'blur(20px)',
-          }}
-        >
-          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                onClick={closeMobile}
-                style={{
-                  padding: '10px 12px', borderRadius: 10, fontSize: 14, fontWeight: 500,
-                  color: pathname === link.to ? 'var(--cm-accent)' : 'var(--fg2)',
-                  background: pathname === link.to ? 'rgba(15,118,110,.08)' : 'transparent',
-                  textDecoration: 'none',
-                }}
-              >
-                {link.label}
-              </Link>
-            ))}
-            <div style={{ display: 'flex', gap: 16, padding: '8px 12px' }}>
-              <a
-                href="https://www.youtube.com/@CloudMindAI"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'var(--fg5)', fontSize: 14, textDecoration: 'none' }}
-              >
-                YouTube
-              </a>
-              <a
-                href="https://www.instagram.com/thecloudmind.ai/"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'var(--fg5)', fontSize: 14, textDecoration: 'none' }}
-              >
-                Instagram
-              </a>
-            </div>
-            {token && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 8, borderTop: '1px solid var(--cm-border)', marginTop: 4 }}>
-                <Link
-                  to="/admin"
-                  onClick={closeMobile}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    padding: '10px 14px', background: 'var(--bg5)', color: '#fff',
-                    borderRadius: 10, fontSize: 14, fontWeight: 600, textDecoration: 'none',
-                  }}
-                >
-                  <Settings size={16} /> Admin Dashboard
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    padding: '10px 14px', background: 'var(--danger-bg)',
-                    color: 'var(--danger)', border: '1px solid var(--danger-border)',
-                    borderRadius: 10, fontSize: 14, fontWeight: 600,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
-                  <LogOut size={16} /> Logout
-                </button>
-              </div>
-            )}
-          </div>
+        <div className="header-actions">
+          {token && <><Link className="admin-link" to="/admin">Dashboard</Link><button className="icon-button" aria-label="Log out" onClick={() => { localStorage.removeItem('token'); navigate('/'); close() }}><LogOut size={18} /></button></>}
+          <Link to="/contact" className="button button-dark header-cta">Let's connect <ArrowUpRight size={16} /></Link>
+          <button className="icon-button menu-toggle" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-navigation" aria-label={open ? 'Close menu' : 'Open menu'}>{open ? <X /> : <Menu />}</button>
         </div>
-      )}
+      </div>
+      {open && <nav id="mobile-navigation" className="mobile-nav" aria-label="Mobile navigation" onKeyDown={e => { if (e.key === 'Escape') close() }}>
+        {links.concat([['/contact', 'Let’s connect']]).map(([to, label]) => <NavLink key={to} to={to} end={to === '/'} onClick={close}>{label}<ArrowUpRight size={16} /></NavLink>)}
+      </nav>}
     </header>
   )
 }
-
-export default Header
