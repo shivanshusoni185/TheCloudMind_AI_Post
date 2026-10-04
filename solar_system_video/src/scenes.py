@@ -674,18 +674,132 @@ def s11(cv, t):
         yy = (1 - ease_out(seg(t, tq, tq + 1.0))) * 24
         cv.text("आपका पसंदीदा ग्रह", 540, 1100 + yy, "devb", 66, WHITE, qa, anchor="ct")
         cv.text("कौन सा है?", 540, 1190 + yy, "devb", 66, GOLD, qa, anchor="ct")
-    wa = window(t, vo_end(sid) + 0.4, D + 1, 0.9)
-    if wa > 0:
-        w1 = text_width("TheCloudMind", 46, "latb")
-        x = 540 - (w1 + text_width(".ai", 46, "latb")) / 2
-        cv.text("TheCloudMind", x, MT + 40, "latb", 46, WHITE, wa)
-        cv.text(".ai", x + w1, MT + 40, "latb", 46, CYAN, wa)
-    # final fade
-    fo = ease(seg(t, D - 1.0, D))
+# ============================================================ SCENE 12 — channel outro
+YT_RED = "#FF0033"; CHANNEL = "TheCloudMindAI"; HANDLE = "@TheCloudMindAI"
+
+def avatar(cv, cx, cy, R, t, a):
+    """Channel mark: Earth inside a rotating cyan-gold ring with an orbiting moon."""
+    v = Vec(cx - R - 40, cy - R - 40, 2 * R + 80, 2 * R + 80)
+    v.circle(cx, cy, R, fill=col("#0A1430", 0.96))
+    seg_n = 90; rot = t * 0.9
+    for k in range(seg_n):
+        q0 = rot + 2 * math.pi * k / seg_n; q1 = q0 + 2 * math.pi / seg_n + 0.01
+        f = 0.5 + 0.5 * math.cos(q0 - rot)
+        c = tuple(int(lerp(x, y, f)) for x, y in zip(hexc(GOLD)[:3], hexc(CYAN)[:3]))
+        v.line([(cx + (R + 2) * math.cos(q0), cy + (R + 2) * math.sin(q0)), (cx + (R + 2) * math.cos(q1), cy + (R + 2) * math.sin(q1))], c + (255,), 7)
+    v.composite(cv, a)
+    # orbit (back half), globe, orbit (front half) for correct depth
+    th = t * 1.4
+    orb = lambda q: (cx + R * 0.78 * math.cos(q), cy + R * 0.26 * math.sin(q) - R * 0.04)
+    for half in (0, 1):
+        if half == 1:
+            globe(cv, cx, cy, R * 0.52, "2k_earth_daymap.jpg", spin=1.4 - 0.25 * t, roll=-0.3, pitch=0.25, alpha=a,
+                  kind="earth", clouds="2k_earth_clouds.jpg", night="2k_earth_nightmap.jpg", atmo=(0.35, 0.6, 1.0), atmo_w=0.06)
+        v = Vec(cx - R, cy - R, 2 * R, 2 * R)
+        qs = np.linspace(math.pi, 2 * math.pi, 60) if half == 0 else np.linspace(0, math.pi, 60)
+        v.line([orb(q) for q in qs], col(CYAN, 0.75), 3)
+        mq = th % (2 * math.pi)
+        if (mq > math.pi) == (half == 0):
+            mx, my = orb(mq); v.circle(mx, my, 9, fill=col(GOLD))
+        v.composite(cv, a)
+
+def bell_icon(v, x, y, s, ang, fill, stroke):
+    """Notification bell; ang swings it about its top pivot."""
+    pts = []
+    for q in np.linspace(math.pi, 2 * math.pi, 24):          # dome
+        pts.append((0.62 * math.cos(q), -0.25 + 0.75 * math.sin(q)))
+    pts += [(0.62, 0.25), (0.82, 0.55), (-0.82, 0.55), (-0.62, 0.25)]
+    c, si = math.cos(ang), math.sin(ang)
+    tr = lambda p: (x + s * (p[0] * c - (p[1] + 1) * si), y + s * (p[0] * si + (p[1] + 1) * c - 1))
+    v.poly([tr(p) for p in pts], fill=fill, outline=stroke, width=2)
+    kx, ky = tr((0, -1.05)); v.circle(kx, ky, s * 0.13, fill=stroke)
+    bx, by = tr((0.0 + 0.25 * si, 0.78)); v.circle(bx, by, s * 0.17, fill=stroke)
+
+def cursor(cv, x, y, a, press=0.0):
+    v = Vec(x - 10, y - 10, 90, 110)
+    k = 1 - 0.12 * press
+    pts = [(0, 0), (0, 62), (15, 48), (27, 74), (37, 69), (25, 44), (45, 44)]
+    v.poly([(x + px * k, y + py * k) for px, py in pts], fill=col(WHITE), outline=col("#0B1020"), width=3)
+    v.composite(cv, a)
+
+def s12(cv, t):
+    sid = 12; D = dur(sid)
+    bg(cv, 11, t)
+    # faint concentric orbits behind the mark
+    ra = ease(seg(t, 0, 1.2))
+    v = Vec()
+    for i, r in enumerate([230, 300, 380, 470]):
+        pts = [(540 + r * math.cos(q), 600 + r * 0.32 * math.sin(q)) for q in np.linspace(0, 2 * math.pi, 160)]
+        v.line(pts, col("#7FB8D6", 0.16), 1.6)
+        q = t * 0.25 * (230 / r) ** 1.5 + i * 1.7
+        v.circle(540 + r * math.cos(q), 600 + r * 0.32 * math.sin(q), 5 - i * 0.6, fill=col(WHITE, 0.6))
+    v.composite(cv, ra)
+    a0 = ease_out(seg(t, 0.1, 1.0))
+    avatar(cv, 540, 600 - 20 * (1 - a0), 165, t, a0)
+    # glow pulse behind avatar on reveal
+    if t < 2.0:
+        v = Vec(); p = seg(t, 0.3, 1.8)
+        v.circle(540, 600, 170 + 120 * p, outline=col(CYAN, 0.5 * (1 - p)), width=4); v.composite(cv)
+    na = ease(seg(t, 0.55, 1.2)); dy = (1 - ease_out(seg(t, 0.55, 1.3))) * 26
+    w1 = text_width("TheCloudMind", 92, "disp"); w2 = text_width("AI", 92, "disp")
+    x = 540 - (w1 + w2) / 2
+    cv.text("TheCloudMind", x, 820 + dy, "disp", 92, WHITE, na)
+    cv.text("AI", x + w1, 820 + dy, "disp", 92, CYAN, na)
+    cv.text(HANDLE, 540, 938 + dy, "lat", 34, MUTED, ease(seg(t, 0.9, 1.5)), anchor="ct")
+    cv.text("ऐसी ही रोचक जानकारी के लिए", 540, 1006, "devb", 46, GOLD, ease(seg(t, kw(sid, "ऐसी") - 0.2, kw(sid, "ऐसी") + 0.4)), anchor="ct")
+    # --- buttons
+    tf, ts, tb = kw(sid, "फॉलो") + 0.15, kw(sid, "सब्सक्राइब") + 0.35, kw(sid, "बेल") + 0.35
+    by0 = 1092; bh = 100
+    sx0, sw = 262, 432; bx = sx0 + sw + 24
+    ba = ease(seg(t, 1.0, 1.5)); bdy = (1 - ease_out(seg(t, 1.0, 1.6))) * 30
+    subd = t >= ts
+    fill_s = (58, 62, 74, 255) if subd else hexc(YT_RED)
+    cv.blit(rrect_sprite(sw, bh, 50, fill=fill_s), sx0, by0 + bdy, ba)
+    if subd:
+        cv.text("SUBSCRIBED ✓", sx0 + sw / 2, by0 + bdy + bh / 2 - 2, "latb", 38, "#E8EAED", ba, anchor="cm", shadow=False)
+    else:
+        v = Vec(sx0, by0, 120, bh + 40)
+        px, py = sx0 + 52, by0 + bdy + bh / 2
+        v.rect(px - 22, py - 16, px + 22, py + 16, fill=col(WHITE), r=8)
+        v.poly([(px - 7, py - 9), (px - 7, py + 9), (px + 9, py)], fill=hexc(YT_RED))
+        v.composite(cv, ba)
+        cv.text("SUBSCRIBE", sx0 + sw / 2 + 30, by0 + bdy + bh / 2 - 2, "latb", 40, WHITE, ba, anchor="cm", shadow=False)
+    # bell button
+    bell_on = t >= tb
+    cv.blit(rrect_sprite(bh, bh, 50, fill=(58, 62, 74, 255) if bell_on else (24, 30, 48, 255), outline=col(WHITE, 0.35)), bx, by0 + bdy, ba)
+    sw_ang = 0.45 * math.sin((t - tb) * 22) * math.exp(-(t - tb) * 2.6) if bell_on else 0.0
+    v = Vec(bx, by0, bh, bh + 40)
+    bell_icon(v, bx + bh / 2, by0 + bdy + bh / 2 + 2, 26, sw_ang, hexc(GOLD) if bell_on else col(WHITE, 0.0), hexc(GOLD) if bell_on else hexc(WHITE))
+    v.composite(cv, ba)
+    # follow button
+    fy = by0 + bh + 22; fw = sw + 24 + bh
+    fol = t >= tf
+    fa = ease(seg(t, 1.2, 1.7)); fdy = (1 - ease_out(seg(t, 1.2, 1.8))) * 30
+    cv.blit(rrect_sprite(fw, bh, 50, fill=(103, 223, 242, 255) if fol else (8, 14, 34, 200), outline=col(CYAN), ow=3), sx0, fy + fdy, fa)
+    cv.text("FOLLOWING ✓" if fol else "FOLLOW  +", sx0 + fw / 2, fy + fdy + bh / 2 - 2, "latb", 40, "#05222A" if fol else CYAN, fa, anchor="cm", shadow=False)
+    # click ripples
+    for tc, (rx, ry) in ((tf, (sx0 + fw / 2, fy + bh / 2)), (ts, (sx0 + sw / 2, by0 + bh / 2)), (tb, (bx + bh / 2, by0 + bh / 2))):
+        p = seg(t, tc, tc + 0.6)
+        if 0 < p < 1:
+            v = Vec(); v.circle(rx, ry, 20 + 90 * ease_out(p), outline=col(WHITE, 0.7 * (1 - p)), width=4); v.composite(cv)
+    # cursor path: enter -> follow -> subscribe -> bell -> exit
+    keys = [(tf - 1.1, (930, 1560)), (tf - 0.1, (sx0 + fw / 2 + 40, fy + bh / 2 + 10)),
+            (ts - 0.25, (sx0 + sw / 2 + 60, by0 + bh / 2 + 6)), (tb - 0.25, (bx + bh / 2 + 6, by0 + bh / 2 + 8)),
+            (tb + 1.0, (bx + bh / 2 + 60, by0 + bh / 2 + 180)), (tb + 1.6, (1150, 1500))]
+    if keys[0][0] <= t <= keys[-1][0]:
+        for (t0, p0), (t1, p1) in zip(keys, keys[1:]):
+            if t0 <= t <= t1:
+                k = ease_io(seg(t, t0, t1)); cx_, cy_ = lerp(p0[0], p1[0], k), lerp(p0[1], p1[1], k)
+        press = max(max(0.0, 1 - abs(t - tc) / 0.12) for tc in (tf, ts, tb))
+        cursor(cv, cx_, cy_, ease(seg(t, keys[0][0], keys[0][0] + 0.3)) * (1 - ease(seg(t, keys[-1][0] - 0.3, keys[-1][0]))), press)
+    la = window(t, vo_end(sid) + 0.3, D + 1, 0.6)
+    cv.text("लाइक   •   शेयर   •   कमेंट", 540, 1440, "devb", 44, WHITE, la, anchor="ct")
+    cv.text("Like  ·  Share  ·  Comment", 540, 1506, "lat", 28, MUTED, la, anchor="ct")
+    fo = ease(seg(t, D - 0.9, D))
     if fo > 0:
         cv.a[:] = cv.a * (1 - fo) + BG_RGB * fo
 
-SCENE_FUNCS = {1: s01, 2: s02, 3: s03, 4: s04, 5: s05, 6: s06, 7: s07, 8: s08, 9: s09, 10: s10, 11: s11}
+SCENE_FUNCS = {1: s01, 2: s02, 3: s03, 4: s04, 5: s05, 6: s06, 7: s07, 8: s08, 9: s09, 10: s10, 11: s11, 12: s12}
 
 # ------------------------------------------------------------ captions
 def captions(cv, g):

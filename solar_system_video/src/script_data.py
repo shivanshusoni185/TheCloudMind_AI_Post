@@ -24,4 +24,15 @@ SCENES = [
          vo="आठवाँ ग्रह, नेपच्यून, सूर्य से सबसे दूर है। यहाँ हवाएँ दो हज़ार किलोमीटर प्रति घंटे से भी तेज़ चल सकती हैं। इस आइस जाइंट का एक साल लगभग एक सौ पैंसठ पृथ्वी वर्षों के बराबर है।"),
     dict(id=11, key="pluto", title="Pluto and closing question",
          vo="और प्लूटो? वह एक बौना ग्रह है। सौरमंडल में आठ ग्रह हैं, लेकिन खोजने को बहुत कुछ बाकी है। आपको कौन सा ग्रह सबसे दिलचस्प लगा?"),
+    # Channel outro (added; not part of the original brief)
+    dict(id=12, key="outro", title="Follow & subscribe — TheCloudMindAI",
+         vo="ऐसी ही रोचक जानकारी के लिए, द क्लाउड माइंड ए आई को फॉलो और सब्सक्राइब करें। बेल आइकन दबाना न भूलें!"),
 ]
+
+# Spoken form -> how it is written in subtitles
+DISPLAY = {"द क्लाउड माइंड ए आई": "TheCloudMindAI"}
+
+def display_text(s):
+    for k, v in DISPLAY.items():
+        s = s.replace(k, v)
+    return s

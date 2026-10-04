@@ -4,7 +4,7 @@ and on-screen copy vs the brief."""
 import json, os, re, subprocess, sys
 sys.path.insert(0, os.path.dirname(__file__))
 from common import ROOT
-from script_data import SCENES
+from script_data import SCENES, display_text
 
 OUT = os.path.join(ROOT, "output")
 TL = json.load(open(os.path.join(ROOT, "build", "timeline.json")))
@@ -49,7 +49,7 @@ check(all(c["t1"] > c["t0"] + 0.6 for c in cues), "every subtitle cue >= 0.6 s")
 check(all(a["t1"] <= b["t0"] for a, b in zip(cues, cues[1:])), "subtitle cues do not overlap")
 check(all(len(c["lines"]) <= 2 for c in cues), "max two subtitle lines")
 joined = {s["id"]: " ".join(c["text"] for c in cues if c["scene"] == s["id"]) for s in SCENES}
-check(all(joined[s["id"]] == s["vo"] for s in SCENES), "subtitle text == exact Hindi narration from the brief")
+check(all(joined[s["id"]] == display_text(s["vo"]) for s in SCENES), "subtitle text == exact Hindi narration from the brief")
 check(srt.count(" --> ") == len(cues), f"SRT has {len(cues)} cues")
 
 # planet order and on-screen copy

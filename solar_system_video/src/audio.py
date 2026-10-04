@@ -204,6 +204,11 @@ def sfx():
     place(b, chime(1760), G(9, S.kw(9, "अट्ठानवे") + 1.0), 0.06)
     place(b, chime(1567.98), G(10, S.kw(10, "हज़ार") - 0.4), 0.06)
     place(b, shimmer(2.5), G(10, S.kw(10, "साल") - 1.2), 0.06)
+    # channel outro: logo reveal + synced UI clicks and bell
+    place(b, shimmer(3.0), G(12, 0.2), 0.08)
+    for w, off in (("फॉलो", 0.15), ("सब्सक्राइब", 0.35), ("बेल", 0.35)):
+        place(b, click(), G(12, S.kw(12, w) + off), 0.32)
+    place(b, chime(1975.5, 1.6), G(12, S.kw(12, "बेल") + 0.38), 0.07)
     return b
 
 # ------------------------------------------------------------ mix

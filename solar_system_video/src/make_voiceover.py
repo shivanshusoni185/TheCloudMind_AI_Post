@@ -29,6 +29,8 @@ async def one(s):
     print(s["id"], round(dur, 2), len(words), "words")
 
 async def main():
+    only = {int(a) for a in sys.argv[1:]}      # e.g. `python make_voiceover.py 12`
     for s in SCENES:
-        await one(s)
+        if not only or s["id"] in only:
+            await one(s)
 asyncio.run(main())

@@ -4,18 +4,18 @@ import json, os, re, subprocess, sys
 import numpy as np
 from scipy.io import wavfile
 sys.path.insert(0, os.path.dirname(__file__))
-from script_data import SCENES
+from script_data import SCENES, display_text
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 VO = os.path.join(ROOT, "build", "vo")
 SR = 48000
 # lead-in before narration and hold after it, per scene (seconds)
-PRE = {1: 1.6, 2: 0.6, 3: 0.7, 4: 0.6, 5: 0.6, 6: 0.6, 7: 0.9, 8: 0.7, 9: 0.6, 10: 0.6, 11: 0.6}
-POST = {1: 0.9, 2: 0.6, 3: 0.6, 4: 0.6, 5: 0.6, 6: 2.6, 7: 0.6, 8: 0.6, 9: 0.6, 10: 1.6, 11: 4.6}
+PRE = {1: 1.6, 2: 0.6, 3: 0.7, 4: 0.6, 5: 0.6, 6: 0.6, 7: 0.9, 8: 0.7, 9: 0.6, 10: 0.6, 11: 0.6, 12: 0.5}
+POST = {1: 0.9, 2: 0.6, 3: 0.6, 4: 0.6, 5: 0.6, 6: 2.6, 7: 0.6, 8: 0.6, 9: 0.6, 10: 1.6, 11: 1.4, 12: 3.4}
 TRIM_HEAD = 0.08   # TTS adds ~0.1 s silence at the head
 
 # never break a cue/line right after these words (keeps numbers & names whole)
-NOBREAK = {"सौ", "एक", "दो", "चार", "दस", "लगभग", "कार्बन", "ग्रेट", "रेड", "हज़ार", "आइस", "प्रति", "करीब", "तीस", "अपनी", "बहुत", "कौन", "सबसे"}
+NOBREAK = {"सौ", "एक", "दो", "चार", "दस", "लगभग", "कार्बन", "ग्रेट", "रेड", "हज़ार", "आइस", "प्रति", "करीब", "तीस", "अपनी", "बहुत", "कौन", "सबसे", "द", "क्लाउड", "माइंड", "ए", "रोचक"}
 
 def split_cues(text, words, maxlen=56):
     """Sentence-first cue split; long sentences are divided at the most
@@ -73,6 +73,7 @@ def main():
         words = [dict(w=w["w"], t0=round(vo_start + w["t0"] - TRIM_HEAD, 3), t1=round(vo_start + w["t1"] - TRIM_HEAD, 3)) for w in d["words"]]
         chunks.append((vo_start, a))
         for txt, i0, i1 in split_cues(s["vo"], words):
+            txt = display_text(txt)
             cues.append(dict(scene=s["id"], text=txt, lines=wrap2(txt), t0=words[i0]["t0"] - 0.05, t1=words[i1]["t1"] + 0.25))
         scenes.append(dict(id=s["id"], key=s["key"], start=round(t, 3), dur=round(dur, 3), vo_start=round(vo_start, 3), words=words))
         t += dur
