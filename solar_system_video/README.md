@@ -11,7 +11,7 @@ A roughly 3-minute (3:12) vertical motion-graphics film (1080×1920, 30 fps) wit
 | `Hindi_Subtitles.srt` | Subtitles timed from the TTS word boundaries |
 | `stems/` | Separate narration, music and SFX stems (48 kHz stereo) |
 
-The MP4s are larger than GitHub's 100 MB file limit, so they are git-ignored. Rebuild them with `./make_all.sh`, or take them from the session hand-off.
+The full-quality MP4s (~296 MB each) and the stems exceed what is practical for git, so they are git-ignored. A 3 Mb/s preview (`Solar_System_Preview_3Mbps.mp4`) is committed. Rebuild everything with `./make_all.sh`.
 
 ## Pipeline (`src/`) — every step is editable code
 1. `script_data.py` holds the exact Hindi narration for the 11 scenes. Edit the copy here.
