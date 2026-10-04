@@ -1,6 +1,6 @@
 # SOLAR SYSTEM — आठ ग्रह, आठ अनोखी दुनिया
 
-A roughly 3-minute (3:12) vertical motion-graphics film (1080×1920, 30 fps) with Hindi narration, synchronised Hindi subtitles, an original score and sound effects. It was built entirely from code, following `Solar_System_Motion_Graphics_Complete_Kit.txt`.
+A roughly 3-minute (3:21, including a 12 s TheCloudMindAI follow/subscribe outro) vertical motion-graphics film (1080×1920, 30 fps) with Hindi narration, synchronised Hindi subtitles, an original score and sound effects. It was built entirely from code, following `Solar_System_Motion_Graphics_Complete_Kit.txt`.
 
 ## Deliverables (`output/`)
 | File | What |
